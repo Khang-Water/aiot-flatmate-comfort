@@ -3,7 +3,7 @@
 ## Netlify frontend
 
 Use the deploy button in the root README. Netlify reads `netlify.toml`, installs the frontend from
-`frontend/`, and builds the Next.js application with Node.js 20.
+`frontend/`, and builds the Next.js static export in `frontend/out` with Node.js 20.
 
 Set this template environment variable during deployment:
 
