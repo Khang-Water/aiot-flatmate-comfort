@@ -1,5 +1,7 @@
 # FlatMate Comfort
 
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/Khang-Water/aiot-flatmate-comfort)
+
 FlatMate Comfort is a local smart-apartment simulation. Python generates sensor and device data; a responsive Vietnamese website renders a 3D apartment, accepts text or browser voice requests, shows observable assistant steps, provides a monitoring dashboard, and manages personalized preferences.
 
 No physical devices are used. MQTT, ESP32, Home Assistant, Redis, PostgreSQL, alerts, authentication, and real-device integrations are outside scope.
@@ -29,6 +31,7 @@ Next: manually verify microphone behavior, add browser-level smoke checks, then 
 - [API contract](docs/api-contract.md)
 - [Simulation design](docs/simulation-design.md)
 - [Implementation phases](docs/phases.md)
+- [Deployment](docs/deployment.md)
 
 Original hardware-oriented proposal remains in [plan.md](plan.md) for reference. Approved simulation scope in `docs/` overrides hardware sections there.
 
@@ -59,3 +62,9 @@ With `make dev` running, verify API, guardrail, SSE, and all web routes:
 ```bash
 make smoke
 ```
+
+## Netlify
+
+The deploy button publishes the Next.js frontend. Enter a public FastAPI URL when Netlify asks for
+`NEXT_PUBLIC_API_URL`. The stateful Python simulation, SQLite, SSE, Whisper ASR, and Supertonic TTS must
+run on a separate persistent backend host. See [deployment instructions](docs/deployment.md).

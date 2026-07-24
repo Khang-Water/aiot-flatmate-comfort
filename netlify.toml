@@ -1,0 +1,11 @@
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--include=dev"
+
+[template.environment]
+  NEXT_PUBLIC_API_URL = "Public FastAPI URL without a trailing slash, for example https://api.example.com"
