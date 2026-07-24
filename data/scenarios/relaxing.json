@@ -1,0 +1,15 @@
+{
+  "id": "relaxing",
+  "name_vi": "Thư giãn",
+  "description_vi": "Người dùng ở khu sinh hoạt với điều kiện trung tính.",
+  "duration_minutes": 120,
+  "actions": [
+    {"at_minute": 0, "target": "occupancy.room_present", "value": true},
+    {"at_minute": 0, "target": "occupancy.bed_occupied", "value": false},
+    {"at_minute": 0, "target": "occupancy.desk_occupied", "value": false},
+    {"at_minute": 0, "target": "power.computer_power_watts", "value": 0},
+    {"at_minute": 0, "target": "environment.temperature_c", "value": 27.2},
+    {"at_minute": 0, "target": "environment.ambient_light_lux", "value": 160},
+    {"at_minute": 0, "target": "inferred_context", "value": "relaxing"}
+  ]
+}

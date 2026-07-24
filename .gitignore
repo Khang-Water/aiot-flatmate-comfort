@@ -1,0 +1,31 @@
+# Environment and secrets
+.env
+.env.local
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# JavaScript
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# Runtime data
+data/generated/*.csv
+data/generated/*.json
+data/*.db
+data/*.db-*
+data/*.db.*
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

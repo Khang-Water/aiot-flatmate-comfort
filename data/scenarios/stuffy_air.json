@@ -1,0 +1,12 @@
+{
+  "id": "stuffy_air",
+  "name_vi": "Không khí ngột ngạt",
+  "description_vi": "CO2 cao trong khi cửa sổ đóng và phòng có người.",
+  "duration_minutes": 120,
+  "actions": [
+    {"at_minute": 0, "target": "occupancy.room_present", "value": true},
+    {"at_minute": 0, "target": "environment.co2_ppm", "value": 1800},
+    {"at_minute": 0, "target": "environment.pm25_ug_m3", "value": 8},
+    {"at_minute": 0, "target": "openings.window_state", "value": "closed"}
+  ]
+}

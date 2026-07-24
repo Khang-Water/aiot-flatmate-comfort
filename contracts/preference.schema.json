@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "preference.schema.json",
+  "title": "PreferenceRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "context", "requested_intent", "preferred_result", "source", "confidence", "observation_count", "confirmed", "created_at", "updated_at"],
+  "properties": {
+    "id": {"type": "string", "minLength": 1},
+    "context": {"enum": ["working", "relaxing", "sleeping", "reading_in_bed", "away", "any"]},
+    "requested_intent": {"type": "string", "minLength": 1},
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "temperature_range_c": {"$ref": "#/$defs/range"},
+        "humidity_range_percent": {"$ref": "#/$defs/range"},
+        "co2_range_ppm": {"$ref": "#/$defs/range"},
+        "pm25_range_ug_m3": {"$ref": "#/$defs/range"},
+        "window_state": {"enum": ["open", "closed", "any"]}
+      }
+    },
+    "preferred_result": {"$ref": "room-snapshot.schema.json#/$defs/deviceTargets"},
+    "source": {"enum": ["explicit", "temporary", "user_correction", "learned"]},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "observation_count": {"type": "integer", "minimum": 0},
+    "confirmed": {"type": "boolean"},
+    "expires_at": {"type": ["string", "null"], "format": "date-time"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "last_used_at": {"type": ["string", "null"], "format": "date-time"}
+  },
+  "$defs": {
+    "range": {
+      "type": "array",
+      "prefixItems": [{"type": "number"}, {"type": "number"}],
+      "minItems": 2,
+      "maxItems": 2
+    }
+  }
+}

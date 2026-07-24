@@ -1,0 +1,12 @@
+{
+  "id": "quiet_comfort",
+  "name_vi": "Mát nhưng ồn",
+  "description_vi": "Phòng đang mát nhưng quạt và máy lọc chạy mạnh gây ồn.",
+  "duration_minutes": 120,
+  "actions": [
+    {"at_minute": 0, "target": "environment.noise_db", "value": 55},
+    {"at_minute": 0, "target": "devices.ac", "value": {"power": true, "mode": "cool", "temperature_c": 25, "fan_mode": "auto"}},
+    {"at_minute": 0, "target": "devices.fan", "value": {"power": true, "speed": 3, "oscillation": true}},
+    {"at_minute": 0, "target": "devices.air_purifier", "value": {"power": true, "speed": 2}}
+  ]
+}

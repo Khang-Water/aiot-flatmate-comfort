@@ -1,0 +1,15 @@
+{
+  "id": "working",
+  "name_vi": "Làm việc",
+  "description_vi": "Người dùng ngồi tại bàn, máy tính hoạt động và phòng hơi ấm.",
+  "duration_minutes": 180,
+  "actions": [
+    {"at_minute": 0, "target": "occupancy.room_present", "value": true},
+    {"at_minute": 0, "target": "occupancy.bed_occupied", "value": false},
+    {"at_minute": 0, "target": "occupancy.desk_occupied", "value": true},
+    {"at_minute": 0, "target": "power.computer_power_watts", "value": 140},
+    {"at_minute": 0, "target": "environment.temperature_c", "value": 29.2},
+    {"at_minute": 0, "target": "environment.ambient_light_lux", "value": 220},
+    {"at_minute": 0, "target": "inferred_context", "value": "working"}
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "trace-event.schema.json",
+  "title": "AssistantTraceEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "request_id", "sequence", "timestamp", "stage", "status", "title_vi", "data"],
+  "properties": {
+    "id": {"type": "string", "minLength": 1},
+    "request_id": {"type": "string", "minLength": 1},
+    "sequence": {"type": "integer", "minimum": 0},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "duration_ms": {"type": ["integer", "null"], "minimum": 0},
+    "stage": {
+      "enum": [
+        "wake_detected", "speech_captured", "transcript_final", "context_inferred",
+        "snapshot_read", "preference_retrieved", "model_requested", "tool_requested",
+        "validation_completed", "action_applied", "state_updated", "preference_recorded",
+        "assistant_response", "speech_started", "speech_completed"
+      ]
+    },
+    "status": {"enum": ["started", "completed", "failed", "skipped"]},
+    "title_vi": {"type": "string", "minLength": 1},
+    "summary_vi": {"type": "string"},
+    "data": {"type": "object"},
+    "error": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": {"type": "string"},
+        "message": {"type": "string"}
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "id": "polluted_air",
+  "name_vi": "Không khí ô nhiễm",
+  "description_vi": "PM2.5 cao và máy lọc không khí đang tắt.",
+  "duration_minutes": 120,
+  "actions": [
+    {"at_minute": 0, "target": "environment.pm25_ug_m3", "value": 95},
+    {"at_minute": 0, "target": "environment.co2_ppm", "value": 750},
+    {"at_minute": 0, "target": "devices.air_purifier", "value": {"power": false, "speed": 0}}
+  ]
+}

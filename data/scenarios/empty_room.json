@@ -1,0 +1,15 @@
+{
+  "id": "empty_room",
+  "name_vi": "Phòng trống",
+  "description_vi": "Không có người trong phòng và các khu vực đều trống.",
+  "duration_minutes": 120,
+  "actions": [
+    {"at_minute": 0, "target": "occupancy.room_present", "value": false},
+    {"at_minute": 0, "target": "occupancy.bed_occupied", "value": false},
+    {"at_minute": 0, "target": "occupancy.desk_occupied", "value": false},
+    {"at_minute": 0, "target": "power.computer_power_watts", "value": 0},
+    {"at_minute": 0, "target": "devices.main_light", "value": {"power": false, "brightness_percent": 0, "color_temperature_kelvin": 4000}},
+    {"at_minute": 0, "target": "devices.bedside_light", "value": {"power": false, "brightness_percent": 0, "color_temperature_kelvin": 3000}},
+    {"at_minute": 0, "target": "inferred_context", "value": "away"}
+  ]
+}

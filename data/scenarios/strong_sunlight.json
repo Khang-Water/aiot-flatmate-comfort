@@ -1,0 +1,12 @@
+{
+  "id": "strong_sunlight",
+  "name_vi": "Nắng mạnh",
+  "description_vi": "Rèm mở hoàn toàn, ánh sáng mạnh và nhiệt độ tăng.",
+  "duration_minutes": 120,
+  "actions": [
+    {"at_minute": 0, "target": "environment.ambient_light_lux", "value": 3500},
+    {"at_minute": 0, "target": "environment.temperature_c", "value": 31.0},
+    {"at_minute": 0, "target": "openings.curtain_position_percent", "value": 100},
+    {"at_minute": 0, "target": "devices.main_light", "value": {"power": false, "brightness_percent": 0, "color_temperature_kelvin": 4000}}
+  ]
+}

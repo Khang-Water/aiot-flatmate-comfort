@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "room-snapshot.schema.json",
+  "title": "RoomSnapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "timestamp", "environment", "occupancy", "openings", "power", "devices", "inferred_context", "context_confidence"],
+  "properties": {
+    "version": {"type": "integer", "minimum": 0},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "environment": {"$ref": "#/$defs/environment"},
+    "occupancy": {"$ref": "#/$defs/occupancy"},
+    "openings": {"$ref": "#/$defs/openings"},
+    "power": {"$ref": "#/$defs/power"},
+    "devices": {"$ref": "#/$defs/devices"},
+    "inferred_context": {"enum": ["working", "relaxing", "sleeping", "reading_in_bed", "away"]},
+    "context_confidence": {"type": "number", "minimum": 0, "maximum": 1}
+  },
+  "$defs": {
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["temperature_c", "humidity_percent", "co2_ppm", "pm25_ug_m3", "ambient_light_lux", "noise_db"],
+      "properties": {
+        "temperature_c": {"type": "number", "minimum": 10, "maximum": 45},
+        "humidity_percent": {"type": "number", "minimum": 0, "maximum": 100},
+        "co2_ppm": {"type": "number", "minimum": 300, "maximum": 10000},
+        "pm25_ug_m3": {"type": "number", "minimum": 0, "maximum": 1000},
+        "ambient_light_lux": {"type": "number", "minimum": 0, "maximum": 100000},
+        "noise_db": {"type": "number", "minimum": 0, "maximum": 140}
+      }
+    },
+    "occupancy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["room_present", "bed_occupied", "desk_occupied"],
+      "properties": {
+        "room_present": {"type": "boolean"},
+        "bed_occupied": {"type": "boolean"},
+        "desk_occupied": {"type": "boolean"}
+      }
+    },
+    "openings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["window_state", "curtain_position_percent"],
+      "properties": {
+        "window_state": {"enum": ["open", "closed"]},
+        "curtain_position_percent": {"type": "integer", "minimum": 0, "maximum": 100}
+      }
+    },
+    "power": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["computer_power_watts", "smart_plugs"],
+      "properties": {
+        "computer_power_watts": {"type": "number", "minimum": 0},
+        "smart_plugs": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/smartPlug"}
+        }
+      }
+    },
+    "smartPlug": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "power_watts"],
+      "properties": {
+        "state": {"enum": ["on", "off"]},
+        "power_watts": {"type": "number", "minimum": 0}
+      }
+    },
+    "devices": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ac", "fan", "main_light", "bedside_light", "air_purifier", "curtain", "humidity_device"],
+      "properties": {
+        "ac": {"$ref": "#/$defs/ac"},
+        "fan": {"$ref": "#/$defs/fan"},
+        "main_light": {"$ref": "#/$defs/light"},
+        "bedside_light": {"$ref": "#/$defs/light"},
+        "air_purifier": {"$ref": "#/$defs/speedDevice"},
+        "curtain": {"$ref": "#/$defs/curtain"},
+        "humidity_device": {"$ref": "#/$defs/humidityDevice"}
+      }
+    },
+    "ac": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["power", "mode", "temperature_c", "fan_mode"],
+      "properties": {
+        "power": {"type": "boolean"},
+        "mode": {"enum": ["cool", "dry", "fan", "auto"]},
+        "temperature_c": {"type": "number", "minimum": 18, "maximum": 30},
+        "fan_mode": {"enum": ["low", "medium", "high", "auto"]}
+      }
+    },
+    "fan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["power", "speed", "oscillation"],
+      "properties": {
+        "power": {"type": "boolean"},
+        "speed": {"type": "integer", "minimum": 0, "maximum": 3},
+        "oscillation": {"type": "boolean"}
+      }
+    },
+    "light": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["power", "brightness_percent", "color_temperature_kelvin"],
+      "properties": {
+        "power": {"type": "boolean"},
+        "brightness_percent": {"type": "integer", "minimum": 0, "maximum": 100},
+        "color_temperature_kelvin": {"type": "integer", "minimum": 2700, "maximum": 6500}
+      }
+    },
+    "speedDevice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["power", "speed"],
+      "properties": {
+        "power": {"type": "boolean"},
+        "speed": {"type": "integer", "minimum": 0, "maximum": 3}
+      }
+    },
+    "curtain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["position_percent"],
+      "properties": {"position_percent": {"type": "integer", "minimum": 0, "maximum": 100}}
+    },
+    "humidityDevice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["power", "mode", "target_humidity_percent"],
+      "properties": {
+        "power": {"type": "boolean"},
+        "mode": {"enum": ["humidify", "dehumidify"]},
+        "target_humidity_percent": {"type": "integer", "minimum": 35, "maximum": 70}
+      }
+    },
+    "deviceTargets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ac_power": {"type": "boolean"},
+        "ac_temperature_c": {"type": "number", "minimum": 18, "maximum": 30},
+        "fan_power": {"type": "boolean"},
+        "fan_speed": {"type": "integer", "minimum": 0, "maximum": 3},
+        "main_light_power": {"type": "boolean"},
+        "main_light_brightness_percent": {"type": "integer", "minimum": 0, "maximum": 100},
+        "main_light_color_temperature_kelvin": {"type": "integer", "minimum": 2700, "maximum": 6500},
+        "bedside_light_power": {"type": "boolean"},
+        "bedside_light_brightness_percent": {"type": "integer", "minimum": 0, "maximum": 100},
+        "bedside_light_color_temperature_kelvin": {"type": "integer", "minimum": 2700, "maximum": 6500},
+        "air_purifier_power": {"type": "boolean"},
+        "air_purifier_speed": {"type": "integer", "minimum": 0, "maximum": 3},
+        "curtain_position_percent": {"type": "integer", "minimum": 0, "maximum": 100},
+        "window_state": {"enum": ["open", "closed"]},
+        "humidity_device_power": {"type": "boolean"},
+        "target_humidity_percent": {"type": "integer", "minimum": 35, "maximum": 70},
+        "desk_computer_power": {"type": "boolean"},
+        "monitor_power": {"type": "boolean"}
+      },
+      "minProperties": 1
+    }
+  }
+}

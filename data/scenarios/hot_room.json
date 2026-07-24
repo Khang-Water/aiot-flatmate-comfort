@@ -1,0 +1,13 @@
+{
+  "id": "hot_room",
+  "name_vi": "Phòng nóng",
+  "description_vi": "Nhiệt độ và độ ẩm cao trong khi cửa sổ đóng.",
+  "duration_minutes": 120,
+  "actions": [
+    {"at_minute": 0, "target": "environment.temperature_c", "value": 33.0},
+    {"at_minute": 0, "target": "environment.humidity_percent", "value": 78.0},
+    {"at_minute": 0, "target": "openings.window_state", "value": "closed"},
+    {"at_minute": 0, "target": "devices.ac", "value": {"power": false, "mode": "cool", "temperature_c": 27, "fan_mode": "auto"}},
+    {"at_minute": 0, "target": "devices.fan", "value": {"power": false, "speed": 0, "oscillation": true}}
+  ]
+}
