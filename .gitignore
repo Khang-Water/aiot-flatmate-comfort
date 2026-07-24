@@ -16,6 +16,7 @@ node_modules/
 out/
 coverage/
 *.tsbuildinfo
+frontend/next-env.d.ts
 
 # Runtime data
 data/generated/*.csv
