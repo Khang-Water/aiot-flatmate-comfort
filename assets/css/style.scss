@@ -1,0 +1,60 @@
+---
+---
+
+@import "{{ site.theme }}";
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: #ffffff;
+  color: #243142;
+  font-family: "Segoe UI", "Noto Sans", Arial, sans-serif;
+}
+
+.page-header {
+  background: linear-gradient(135deg, #155eef, #0f3d91);
+}
+
+.main-content {
+  max-width: 76rem;
+  background: #ffffff;
+  font-size: 1.05rem;
+  line-height: 1.72;
+}
+
+.main-content h1,
+.main-content h2,
+.main-content h3 {
+  color: #17365d;
+}
+
+.main-content img {
+  box-sizing: border-box;
+  width: 100%;
+  height: auto;
+  margin: 1rem 0 1.5rem;
+  padding: 0.5rem;
+  background: #ffffff;
+  border: 1px solid #d8e0eb;
+  border-radius: 0.5rem;
+}
+
+.main-content table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  background: #ffffff;
+}
+
+.main-content pre,
+.main-content code {
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+}
+
+@media (max-width: 48rem) {
+  .main-content {
+    font-size: 1rem;
+  }
+}

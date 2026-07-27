@@ -1,0 +1,24 @@
+title: Báo cáo đề tài FlatMate Comfort
+description: Hệ thống AIoT chuyển đổi yêu cầu người dùng thành cấu hình thiết bị dựa trên dữ liệu cảm biến và sở thích cá nhân
+lang: vi
+theme: jekyll-theme-cayman
+markdown: kramdown
+baseurl: /aiot-flatmate-comfort
+url: https://khang-water.github.io
+show_downloads: false
+
+kramdown:
+  input: GFM
+
+exclude:
+  - backend
+  - contracts
+  - data
+  - frontend
+  - scripts
+  - tests
+  - .env.example
+  - Makefile
+  - netlify.toml
+  - package-lock.json
+  - plan.md

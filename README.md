@@ -2,6 +2,8 @@
 
 [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/Khang-Water/aiot-flatmate-comfort)
 
+[Read the Vietnamese project report](https://khang-water.github.io/aiot-flatmate-comfort/)
+
 FlatMate Comfort is a local smart-apartment simulation. Python generates sensor and device data; a responsive Vietnamese website renders a 3D apartment, accepts text or browser voice requests, shows observable assistant steps, provides a monitoring dashboard, and manages personalized preferences.
 
 No physical devices are used. MQTT, ESP32, Home Assistant, Redis, PostgreSQL, alerts, authentication, and real-device integrations are outside scope.
@@ -25,6 +27,7 @@ Next: manually verify microphone behavior, add browser-level smoke checks, then 
 
 ## Documents
 
+- [Vietnamese project report](REPORT.md)
 - [Product specification](docs/product-spec.md)
 - [Architecture](docs/architecture.md)
 - [UI and interaction flows](docs/ui-flows.md)
