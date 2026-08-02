@@ -3,11 +3,12 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
 
 from app.asr import Transcription
-from app.main import app, encode_sse, offline_tts, vietnamese_asr
+from app.main import app, encode_sse, mount_frontend, offline_tts, vietnamese_asr
 from app.tts import SynthesizedSpeech
 
 
@@ -62,6 +63,14 @@ def test_sse_encoding_preserves_vietnamese_text() -> None:
 
     assert event.startswith("id: 7\nevent: trace\n")
     assert 'data: {"title_vi":"Đã kết nối"}\n\n' in event
+
+
+def test_exported_frontend_can_share_fastapi_origin(tmp_path: Path) -> None:
+    (tmp_path / "index.html").write_text("<h1>FlatMate Comfort</h1>", encoding="utf-8")
+    frontend_app = FastAPI()
+
+    assert mount_frontend(frontend_app, tmp_path) is True
+    assert TestClient(frontend_app).get("/").text == "<h1>FlatMate Comfort</h1>"
 
 
 def test_scenarios_activate_and_change_state(client: TestClient) -> None:

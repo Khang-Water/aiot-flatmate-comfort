@@ -1,0 +1,53 @@
+services:
+  - type: web
+    name: flatmate-comfort
+    runtime: docker
+    plan: standard
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_BASE_URL
+        sync: false
+      - key: OPENAI_MODEL
+        sync: false
+      - key: OPENAI_REASONING_EFFORT
+        value: low
+      - key: OPENAI_TIMEOUT_SECONDS
+        value: "45"
+      - key: WEB_ORIGIN
+        value: https://flatmate-comfort.onrender.com
+      - key: DATABASE_PATH
+        value: /var/data/flatmate.db
+      - key: HF_HOME
+        value: /var/data/cache/huggingface
+      - key: XDG_CACHE_HOME
+        value: /var/data/cache
+      - key: SUPERTONIC_CACHE_DIR
+        value: /var/data/cache/supertonic3
+      - key: ASR_MODEL
+        value: small
+      - key: ASR_DEVICE
+        value: cpu
+      - key: ASR_COMPUTE_TYPE
+        value: int8
+      - key: ASR_BEAM_SIZE
+        value: "2"
+      - key: TTS_ENGINE
+        value: vieneu
+      - key: VIENEU_VOICE
+        value: Mai Anh
+      - key: SUPERTONIC_VOICE
+        value: F4
+      - key: SUPERTONIC_STEPS
+        value: "12"
+      - key: SUPERTONIC_SPEED
+        value: "1.0"
+    disk:
+      name: flatmate-data
+      mountPath: /var/data
+      sizeGB: 10

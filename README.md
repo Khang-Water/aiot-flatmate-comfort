@@ -1,52 +1,69 @@
 # FlatMate Comfort
 
-[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/Khang-Water/aiot-flatmate-comfort)
+[![Triển khai trên Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Khang-Water/aiot-flatmate-comfort)
 
-[Read the Vietnamese project report](https://khang-water.github.io/aiot-flatmate-comfort/)
+[Đọc báo cáo kỹ thuật tiếng Việt](https://khang-water.github.io/aiot-flatmate-comfort/)
 
-FlatMate Comfort is an NT532 AIoT project that simulates a personalized one-bedroom smart apartment. Python generates sensor and device data; a responsive Vietnamese website renders a dimensioned 3D digital twin, accepts text or browser voice requests, shows observable assistant steps, provides a monitoring dashboard, and manages personalized preferences.
+FlatMate Comfort là đồ án AIoT môn NT532, mô phỏng căn hộ thông minh một phòng ngủ có khả năng cá nhân hóa. Python sinh dữ liệu cảm biến và trạng thái thiết bị; giao diện web tiếng Việt dựng bản sao số 3D theo kích thước, nhận yêu cầu văn bản hoặc giọng nói, hiển thị các bước xử lý của trợ lý, cung cấp bảng theo dõi và quản lý sở thích người dùng.
 
-No physical devices are used. MQTT, ESP32, Home Assistant, Redis, PostgreSQL, alerts, authentication, and real-device integrations are outside scope.
+Hệ thống không sử dụng thiết bị vật lý. MQTT, ESP32, Home Assistant, cảnh báo an toàn, xác thực và tích hợp thiết bị thật nằm ngoài phạm vi phiên bản hiện tại.
 
-## Current status
+## Giao diện
 
-Current product includes deterministic simulation, SQLite history and structured preference memory, request-scoped SSE updates, a responsive one-bedroom digital twin, sensor/device overlays, context selection, a 24-hour dashboard, validated controls, MediaRecorder voice capture, local faster-whisper Vietnamese ASR, optional `Hey FlatMate` wake mode, offline VieNeu v3 Turbo Vietnamese speech with Supertonic fallback, guided demo commands, preference management, and conversation history. Invalid or failed assistant actions leave state unchanged. Without `OPENAI_API_KEY`, simulation, dashboard, manual controls, ASR, and TTS remain available.
+### Bản sao số 3D của căn hộ
 
-Verified snapshot: 43 backend tests passed, 1 environment-dependent test skipped; Ruff, frontend domain checks, TypeScript, and production build passed.
+![Bản sao số 3D của căn hộ một phòng ngủ](docs/screenshots/digital-twin.png)
 
-## Stack
+### Bảng theo dõi và điều khiển
 
-- Web: Next.js, TypeScript, responsive global CSS, React Three Fiber
-- API: Python 3.11, FastAPI, Pydantic
-- Live updates: Server-Sent Events (SSE)
-- Storage: SQLite
-- Data: deterministic Python-generated CSV and JSON scenarios
-- Voice input: browser `MediaRecorder` + local faster-whisper `small` on CPU int8; browser recognition only handles optional `en-US` wake word
-- Voice output: VietNormalizer + VieNeu v3 Turbo ONNX `int8` (voice `Mai Anh`) with Supertonic fallback
-- AI: OpenAI Responses API with structured function tools
+![Bảng theo dõi cảm biến và thiết bị](docs/screenshots/bang-dieu-khien.png)
 
-## Documents
+### Lịch sử trợ lý
 
-- [Complete Vietnamese technical report](REPORT.md)
-- [Word report](deliverables/FlatMate-Comfort-NT532-Technical-Report.docx)
-- [Converted NT532 project instruction](docs/source/NT532-Project-Instruction.md)
-- [Editable system architecture](docs/figures/flatmate-system-architecture.drawio)
-- [Architecture preview](docs/figures/flatmate-system-architecture.png)
-- [Product specification](docs/product-spec.md)
-- [Architecture](docs/architecture.md)
-- [UI and interaction flows](docs/ui-flows.md)
-- [API contract](docs/api-contract.md)
-- [Simulation design](docs/simulation-design.md)
-- [Implementation phases](docs/phases.md)
-- [Deployment](docs/deployment.md)
+![Lịch sử yêu cầu và phản hồi của trợ lý](docs/screenshots/lich-su-hoi-thoai.png)
 
-Original hardware-oriented proposal remains in [plan.md](plan.md) for reference. Approved simulation scope in `docs/` overrides hardware sections there.
+## Trạng thái hiện tại
 
-The report intentionally leaves unknown student IDs/group-member details marked as missing instead of inventing them. Fill those fields before submission.
+Sản phẩm gồm bộ máy mô phỏng tất định, lịch sử SQLite, bộ nhớ sở thích có cấu trúc, cập nhật trạng thái qua SSE, bản sao số căn hộ một phòng ngủ, lớp phủ cảm biến và thiết bị, chọn ngữ cảnh hiện diện, bảng theo dõi 24 giờ, điều khiển có quy tắc bảo vệ, thu âm bằng `MediaRecorder`, ASR tiếng Việt cục bộ bằng faster-whisper, chế độ đánh thức `Hey FlatMate`, TTS ngoại tuyến bằng VieNeu v3 Turbo với Supertonic làm phương án dự phòng, lệnh minh họa, quản lý sở thích và lịch sử hội thoại.
 
-## Local setup
+Thao tác không hợp lệ hoặc yêu cầu trợ lý thất bại không làm thay đổi trạng thái căn hộ. Khi chưa cấu hình `OPENAI_API_KEY`, mô phỏng, bảng theo dõi, điều khiển thủ công, ASR và TTS vẫn hoạt động.
 
-Requirements: Node.js 20+, npm, Python 3.11+, and `uv`.
+Kết quả kiểm tra hiện tại: 44 phép kiểm thử phía máy chủ đạt, 1 phép kiểm thử phụ thuộc môi trường được bỏ qua; Ruff, kiểm tra miền dữ liệu giao diện, TypeScript và bản dựng sản xuất đều đạt.
+
+## Công nghệ
+
+- Giao diện: Next.js, TypeScript, CSS thích ứng và React Three Fiber.
+- API: Python 3.11, FastAPI và Pydantic.
+- Cập nhật trực tiếp: Server-Sent Events.
+- Lưu trữ: SQLite trên đĩa bền vững.
+- Dữ liệu: tệp CSV sinh tất định và kịch bản JSON.
+- Nhận dạng giọng nói: `MediaRecorder` và faster-whisper `small`, CPU `int8`.
+- Tổng hợp giọng nói: VietNormalizer, VieNeu v3 Turbo ONNX `int8`, giọng `Mai Anh`; Supertonic làm phương án dự phòng.
+- Trợ lý: OpenAI Responses API với công cụ hàm có cấu trúc.
+- Triển khai: Docker và bản thiết kế Render.
+
+## Tài liệu
+
+- [Báo cáo kỹ thuật hoàn chỉnh](REPORT.md)
+- [Báo cáo Word](deliverables/FlatMate-Comfort-NT532-Technical-Report.docx)
+- [Đề bài NT532 đã chuyển sang Markdown](docs/source/NT532-Project-Instruction.md)
+- [Sơ đồ kiến trúc có thể chỉnh sửa](docs/figures/flatmate-system-architecture.drawio)
+- [Ảnh sơ đồ kiến trúc](docs/figures/flatmate-system-architecture.png)
+- [Đặc tả sản phẩm](docs/product-spec.md)
+- [Kiến trúc hệ thống](docs/architecture.md)
+- [Luồng giao diện và tương tác](docs/ui-flows.md)
+- [Hợp đồng API](docs/api-contract.md)
+- [Thiết kế mô phỏng](docs/simulation-design.md)
+- [Các giai đoạn triển khai](docs/phases.md)
+- [Hướng dẫn triển khai](docs/deployment.md)
+
+Đề xuất phần cứng ban đầu vẫn được giữ tại [plan.md](plan.md) để tham khảo. Phạm vi mô phỏng đã duyệt trong thư mục `docs/` được ưu tiên khi có nội dung khác nhau.
+
+Báo cáo không tự suy đoán MSSV hoặc thông tin thành viên còn thiếu. Cần bổ sung các trường này trước khi nộp.
+
+## Chạy trên máy cá nhân
+
+Yêu cầu: Node.js 20 trở lên, npm, Python 3.11 trở lên và `uv`.
 
 ```bash
 cp .env.example .env
@@ -54,26 +71,40 @@ make install
 make dev
 ```
 
-Open `http://localhost:3000`. API runs at `http://localhost:8000`; API reference is available at `http://localhost:8000/docs`.
+Các địa chỉ mặc định:
 
-- `http://localhost:3000`: 3D apartment digital twin
-- `http://localhost:3000/dashboard`: monitoring and control dashboard
-- `http://localhost:3000/history`: recent assistant conversations
+- `http://localhost:3000`: bản sao số 3D.
+- `http://localhost:3000/dashboard`: bảng theo dõi và điều khiển.
+- `http://localhost:3000/history`: lịch sử trợ lý.
+- `http://localhost:8000`: FastAPI.
+- `http://localhost:8000/docs`: tài liệu OpenAPI.
 
-Run project checks:
+Chạy toàn bộ kiểm tra:
 
 ```bash
 make check
 ```
 
-With `make dev` running, verify API, guardrail, SSE, and all web routes:
+Khi `make dev` đang chạy, kiểm tra API, quy tắc bảo vệ, SSE và các trang web:
 
 ```bash
 make smoke
 ```
 
-## Netlify
+## Triển khai toàn bộ trên Render
 
-The deploy button publishes the Next.js frontend. Enter a public FastAPI URL when Netlify asks for
-`NEXT_PUBLIC_API_URL`. The stateful Python simulation, SQLite, SSE, Whisper ASR, and offline TTS must
-run on a separate persistent backend host. See [deployment instructions](docs/deployment.md).
+`render.yaml` tạo một dịch vụ web Render dùng Docker. Next.js được xuất thành tệp tĩnh trong bước dựng; FastAPI phục vụ giao diện, API, SSE, ASR và TTS trên cùng một tên miền. SQLite cùng bộ nhớ đệm mô hình được lưu tại đĩa bền vững `/var/data`.
+
+### Các bước triển khai
+
+1. Nhấn nút **Triển khai trên Render** ở đầu README.
+2. Đăng nhập Render và kết nối kho mã GitHub.
+3. Nhập `OPENAI_API_KEY`, `OPENAI_BASE_URL` và `OPENAI_MODEL` theo cấu hình đang hoạt động. Nếu dùng OpenAI trực tiếp, có thể để trống `OPENAI_BASE_URL`.
+4. Xác nhận bản thiết kế và chờ ảnh Docker được dựng.
+5. Mở URL Render được cấp; điểm kiểm tra trạng thái nằm tại `/api/health`, tài liệu OpenAPI tại `/docs`.
+
+**Cảnh báo chi phí:** bản thiết kế dùng gói `standard` và đĩa bền vững 10 GB vì faster-whisper, VieNeu và Supertonic không phù hợp gói miễn phí. Render sẽ hiển thị chi phí trước khi tạo dịch vụ. Không xác nhận thanh toán nếu chưa chấp nhận mức phí.
+
+Lần gọi ASR hoặc TTS đầu tiên tải mô hình xuống đĩa bền vững nên có thể chậm. Các lần sau sử dụng bộ nhớ đệm tại `/var/data/cache`.
+
+Không đưa `OPENAI_API_KEY` vào mã nguồn, ảnh Docker hoặc biến môi trường giao diện. Khóa bí mật chỉ được nhập trong bảng điều khiển Render.

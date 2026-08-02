@@ -1,41 +1,45 @@
-# Deployment
+# Triển khai trên Render
 
-## Netlify frontend
+FlatMate Comfort dùng một Render Web Service để chạy toàn bộ frontend và backend. Docker build static export của Next.js, sau đó chép kết quả vào image FastAPI. FastAPI phục vụ giao diện và API trên cùng origin nên không cần một frontend host riêng.
 
-Use the deploy button in the root README. Netlify reads `netlify.toml`, installs the frontend from
-`frontend/`, and builds the Next.js static export in `frontend/out` with Node.js 20.
+## Thành phần triển khai
 
-Set this template environment variable during deployment:
+- `Dockerfile`: build frontend bằng Node.js và runtime backend bằng Python 3.11.
+- `render.yaml`: khai báo Web Service, health check, biến môi trường và persistent disk.
+- `/var/data/flatmate.db`: SQLite database.
+- `/var/data/cache/huggingface`: cache faster-whisper và VieNeu.
+- `/var/data/cache/supertonic3`: cache Supertonic.
+
+## Triển khai bằng Blueprint
+
+Mở:
+
+<https://render.com/deploy?repo=https://github.com/Khang-Water/aiot-flatmate-comfort>
+
+Render yêu cầu nhập các giá trị không được lưu trong repository:
 
 ```text
-NEXT_PUBLIC_API_URL=https://your-public-api.example.com
+OPENAI_API_KEY
+OPENAI_BASE_URL
+OPENAI_MODEL
 ```
 
-Use no trailing slash. The frontend build succeeds without this value, but browser features that need
-simulation state, SSE, assistant requests, ASR, or TTS cannot work until a public backend URL is set.
+Nếu dùng OpenAI trực tiếp, có thể để trống `OPENAI_BASE_URL`. `OPENAI_MODEL` phải là model mà API key hiện tại có quyền sử dụng.
 
-After Netlify assigns the production site URL, configure the backend with the exact origin:
+## Tài nguyên
 
-```text
-WEB_ORIGIN=https://your-site.netlify.app
-```
+Blueprint chọn region Singapore, gói `standard` và persistent disk 10 GB. Cấu hình này cần thiết để giữ SQLite cùng model cache và cung cấp đủ RAM cho speech inference trên CPU.
 
-Restart the backend after changing `WEB_ORIGIN`. Netlify deploy previews use different origins; the
-current backend intentionally allows one exact web origin.
+**Cảnh báo chi phí:** đây là cấu hình trả phí. Render hiển thị chi phí trước khi tạo service. Chỉ xác nhận khi đã chấp nhận mức phí.
 
-## Why the backend is separate
+## Kiểm tra sau triển khai
 
-The FastAPI backend is not suitable for Netlify Functions. It owns a long-running deterministic
-simulation, Server-Sent Events, SQLite state, and local ASR/TTS models. The Whisper model alone is about
-1.6 GB. Deploy the backend on a persistent VM or container service such as Render, Railway, Fly.io, or a
-small VPS, then pass its HTTPS URL to Netlify.
+- Giao diện: `https://<ten-service>.onrender.com/`
+- Health check: `https://<ten-service>.onrender.com/api/health`
+- OpenAPI: `https://<ten-service>.onrender.com/docs`
+- Dashboard: `https://<ten-service>.onrender.com/dashboard/`
+- Lịch sử: `https://<ten-service>.onrender.com/history/`
 
-Required backend persistence and resources:
+ASR và TTS tải model ở lần sử dụng đầu tiên. Quá trình này có thể mất vài phút nhưng chỉ lặp lại khi persistent cache bị xóa.
 
-- Python 3.11 and `uv`
-- writable persistent volume for `data/flatmate.db`
-- enough RAM and disk for faster-whisper `large-v3-turbo` and Supertonic
-- HTTPS endpoint that supports long-lived SSE connections
-- environment values from `.env.example`
-
-Do not place `OPENAI_API_KEY` in Netlify frontend environment variables. Keep it only on the backend.
+Không lưu `OPENAI_API_KEY` trong `.env.example`, frontend, Dockerfile hoặc Git. Secret chỉ được đặt trong Render Dashboard.

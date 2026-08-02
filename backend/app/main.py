@@ -3,6 +3,7 @@ import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Annotated, Any
 from zoneinfo import ZoneInfo
 
@@ -10,6 +11,7 @@ from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from openai import AsyncOpenAI
 
 from app.asr import VietnameseAsr
@@ -324,3 +326,13 @@ async def events(request: Request) -> StreamingResponse:
             "X-Accel-Buffering": "no",
         },
     )
+
+
+def mount_frontend(application: FastAPI, export_directory: Path) -> bool:
+    if not export_directory.is_dir():
+        return False
+    application.mount("/", StaticFiles(directory=export_directory, html=True), name="frontend")
+    return True
+
+
+mount_frontend(app, PROJECT_ROOT / "frontend" / "out")
