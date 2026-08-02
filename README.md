@@ -1,7 +1,5 @@
 # FlatMate Comfort
 
-[![Triển khai trên Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Khang-Water/aiot-flatmate-comfort)
-
 [Đọc báo cáo kỹ thuật tiếng Việt](https://khang-water.github.io/aiot-flatmate-comfort/)
 
 FlatMate Comfort là đồ án AIoT môn NT532, mô phỏng căn hộ thông minh một phòng ngủ có khả năng cá nhân hóa. Python sinh dữ liệu cảm biến và trạng thái thiết bị; giao diện web tiếng Việt dựng bản sao số 3D theo kích thước, nhận yêu cầu văn bản hoặc giọng nói, hiển thị các bước xử lý của trợ lý, cung cấp bảng theo dõi và quản lý sở thích người dùng.
@@ -97,7 +95,7 @@ make smoke
 
 ### Các bước triển khai
 
-1. Nhấn nút **Triển khai trên Render** ở đầu README.
+1. Mở [trang tạo Render Blueprint](https://render.com/deploy?repo=https://github.com/Khang-Water/aiot-flatmate-comfort).
 2. Đăng nhập Render và kết nối kho mã GitHub.
 3. Nhập `OPENAI_API_KEY`, `OPENAI_BASE_URL` và `OPENAI_MODEL` theo cấu hình đang hoạt động. Nếu dùng OpenAI trực tiếp, có thể để trống `OPENAI_BASE_URL`.
 4. Xác nhận bản thiết kế và chờ ảnh Docker được dựng.
