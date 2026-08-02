@@ -271,7 +271,7 @@ def test_llm_correction_is_saved_and_available_on_next_request(tmp_path: Path) -
         await orchestrator.wait_idle()
 
         learned = storage.preferences()[0]
-        assert learned.source == "learned"
+        assert learned.source == "user_correction"
         assert learned.confirmed is True
 
         arguments = scene_arguments()
@@ -303,6 +303,42 @@ def test_llm_correction_is_saved_and_available_on_next_request(tmp_path: Path) -
             if isinstance(item, dict) and item.get("type") == "function_call_output"
         ]
         assert any(learned.id in output for output in outputs)
+
+    asyncio.run(run())
+
+
+def test_session_history_is_passed_to_model_without_cross_session_leak(tmp_path: Path) -> None:
+    async def run() -> None:
+        client = FakeClient([response(text="Đã hiểu yêu cầu nối tiếp.")])
+        orchestrator, _, storage = build_orchestrator(tmp_path, client)
+        now = datetime.now(UTC)
+        storage.start_conversation("prior", "same-session", "text", "Bật đèn bàn.", now)
+        storage.finish_conversation(
+            "prior",
+            status="completed",
+            assistant_text="Đã bật đèn bàn.",
+            error_message="",
+            completed_at=now,
+        )
+        storage.start_conversation("private", "other-session", "text", "Mã riêng 123.", now)
+        storage.finish_conversation(
+            "private",
+            status="completed",
+            assistant_text="Đã lưu mã riêng 123.",
+            error_message="",
+            completed_at=now,
+        )
+
+        await orchestrator.submit(
+            AssistantRequest(text="Giảm nó xuống 50 phần trăm.", session_id="same-session")
+        )
+        await orchestrator.wait_idle()
+
+        input_items = client.responses.calls[0]["input"]
+        assert input_items[0] == {"role": "user", "content": "Bật đèn bàn."}
+        assert input_items[1] == {"role": "assistant", "content": "Đã bật đèn bàn."}
+        assert "Yêu cầu hiện tại: Giảm nó xuống 50 phần trăm." in input_items[2]["content"]
+        assert "Mã riêng 123" not in json.dumps(input_items, ensure_ascii=False)
 
     asyncio.run(run())
 

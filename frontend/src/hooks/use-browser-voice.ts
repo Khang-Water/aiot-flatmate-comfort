@@ -147,7 +147,14 @@ export function useBrowserVoice({ busy, responseText, onCommand, onTranscript }:
     setError("");
     onTranscriptRef.current("");
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          autoGainControl: true,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+      });
       streamRef.current = stream;
       const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"]
         .find((type) => MediaRecorder.isTypeSupported(type));
@@ -199,14 +206,19 @@ export function useBrowserVoice({ busy, responseText, onCommand, onTranscript }:
     body.append("audio", blob, "command.webm");
     try {
       const response = await fetch(`${API_URL}/api/asr`, { method: "POST", body });
-      if (!response.ok) throw new Error("asr_failed");
+      if (!response.ok) {
+        const failure = await response.json().catch(() => null) as { detail?: string } | null;
+        throw new Error(failure?.detail || "Không thể nhận dạng đoạn ghi âm.");
+      }
       const result = await response.json() as TranscriptionResponse;
-      onTranscriptRef.current(result.text);
+      const transcript = result.text.trim();
+      if (!transcript) throw new Error("Không nhận diện được nội dung giọng nói.");
+      onTranscriptRef.current(transcript);
       setStatus("idle");
-      await onCommandRef.current(result.text);
-    } catch {
+      await onCommandRef.current(transcript);
+    } catch (cause) {
       setStatus("idle");
-      setError("Không nhận dạng được tiếng Việt. Lần đầu có thể cần chờ tải model ASR.");
+      setError(cause instanceof Error ? cause.message : "Không nhận dạng được tiếng Việt.");
     }
   }
 
@@ -245,18 +257,21 @@ export function useBrowserVoice({ busy, responseText, onCommand, onTranscript }:
     setError("");
     try {
       const response = await fetch(`${API_URL}/api/tts`, { ...jsonRequest("POST", { text }), signal: controller.signal });
-      if (!response.ok) throw new Error("tts_failed");
+      if (!response.ok) {
+        const failure = await response.json().catch(() => null) as { detail?: string } | null;
+        throw new Error(failure?.detail || "Không tạo được giọng đọc.");
+      }
       const url = URL.createObjectURL(await response.blob());
       const audio = new Audio(url);
       audioRef.current = audio;
       audioUrlRef.current = url;
       audio.onended = stopSpeaking;
-      audio.onerror = () => { setError("Không phát được âm thanh Supertonic."); stopSpeaking(); };
+      audio.onerror = () => { setError("Không phát được âm thanh ngoại tuyến."); stopSpeaking(); };
       await audio.play();
       setSpeaking(true);
     } catch (speechError) {
       if (!(speechError instanceof DOMException && speechError.name === "AbortError")) {
-        setError("Không tạo được giọng đọc Supertonic.");
+        setError(speechError instanceof Error ? speechError.message : "Không tạo được giọng đọc ngoại tuyến.");
       }
       stopSpeaking();
     } finally {

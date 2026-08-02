@@ -1,51 +1,83 @@
 ---
 layout: default
-title: Báo cáo đề tài FlatMate Comfort
-description: Hệ thống AIoT chuyển đổi yêu cầu người dùng thành cấu hình thiết bị dựa trên dữ liệu cảm biến và sở thích cá nhân
+title: Báo cáo kỹ thuật FlatMate Comfort
+description: Digital twin căn hộ một phòng ngủ với trợ lý AIoT cá nhân hóa, mô phỏng cảm biến và điều khiển thiết bị bằng tiếng Việt
 permalink: /
 ---
 
-# BÁO CÁO XÁC ĐỊNH ĐỀ TÀI
+# BÁO CÁO KỸ THUẬT ĐỒ ÁN NT532
 
+## FLATMATE COMFORT — DIGITAL TWIN CĂN HỘ THÔNG MINH CÁ NHÂN HÓA
+
+**Học phần:** Advanced Internet of Things Technologies (NT532) \
+**Đơn vị:** Faculty of Computer Networks & Communications, UIT — VNU-HCM \
+**Giảng viên:** Thuat NGUYEN-KHANH \
+**Sinh viên thực hiện:** Khang Lê \
+**MSSV:** Chưa được cung cấp trong repository \
+**Thành viên thứ hai:** Chưa được cung cấp trong repository \
+**Ngày cập nhật báo cáo:** 02/08/2026
+
+> Tài liệu hướng dẫn yêu cầu thông tin đầy đủ của tác giả và nhóm hai thành viên. Báo cáo không tự suy đoán MSSV hoặc danh tính thành viên còn thiếu; các trường trên cần được bổ sung trước khi nộp bản chính thức.
+
+## Mục lục
+
+1. [Giới thiệu](#1-giới-thiệu)
+2. [Phạm vi và yêu cầu hệ thống](#2-phạm-vi-và-yêu-cầu-hệ-thống)
+3. [Related work](#3-related-work)
+4. [Kiến trúc hệ thống](#4-kiến-trúc-hệ-thống)
+5. [Digital twin căn hộ một phòng ngủ](#5-digital-twin-căn-hộ-một-phòng-ngủ)
+6. [Trợ lý AI và guardrail](#6-trợ-lý-ai-và-guardrail)
+7. [Bộ nhớ và cá nhân hóa](#7-bộ-nhớ-và-cá-nhân-hóa)
+8. [Xử lý giọng nói tiếng Việt](#8-xử-lý-giọng-nói-tiếng-việt)
+9. [Phân tích mã nguồn](#9-phân-tích-mã-nguồn)
+10. [Demonstration, logs và numerical results](#10-demonstration-logs-và-numerical-results)
+11. [Đánh giá](#11-đánh-giá)
+12. [Triển khai và vận hành](#12-triển-khai-và-vận-hành)
+13. [Hướng phát triển](#13-hướng-phát-triển)
+14. [Kết luận](#14-kết-luận)
+15. [Tài liệu tham khảo](#tài-liệu-tham-khảo)
 
 ## Tóm tắt
 
-FlatMate Comfort là hệ thống AIoT mô phỏng căn hộ thông minh. Hệ thống nhận yêu cầu tiếng Việt bằng văn bản hoặc giọng nói, kết hợp dữ liệu cảm biến, trạng thái thiết bị, ngữ cảnh hoạt động và sở thích cá nhân để tạo tập cấu hình số cho thiết bị. Ví dụ, yêu cầu “phòng rất nóng” có thể được chuyển thành nhiệt độ điều hòa 24°C và quạt mức 1 thay vì một lệnh bật/tắt cố định.
+FlatMate Comfort là nguyên mẫu AIoT mô phỏng một căn hộ một phòng ngủ. Hệ thống kết hợp digital twin 3D, dữ liệu cảm biến sinh theo thời gian, trạng thái thiết bị, ngữ cảnh hiện diện và bộ nhớ sở thích để chuyển yêu cầu tiếng Việt thành tập giá trị điều khiển có cấu trúc. Người dùng có thể nhập văn bản, nói qua microphone hoặc điều khiển thiết bị trực tiếp. Trợ lý đọc `RoomSnapshot`, truy xuất preference phù hợp, gọi structured function tools, kiểm tra guardrail và chỉ cập nhật mô phỏng khi toàn bộ scene hợp lệ.
 
-Toàn bộ cảm biến và thiết bị được mô phỏng bằng Python cùng dataset sinh có kiểm soát; không cần phần cứng thật. Website thể hiện căn hộ 3D, vị trí thiết bị, số liệu cảm biến, biểu đồ 24 giờ, bảng điều khiển và từng bước xử lý của trợ lý. LLM chọn công cụ và mục tiêu thiết bị, nhưng backend vẫn kiểm tra kiểu dữ liệu, giới hạn vận hành và xung đột trước khi cập nhật mô phỏng.
+Backend được xây dựng bằng FastAPI, Pydantic và SQLite. Simulation engine chạy xác định với seed cố định, duy trì lịch sử 24 giờ và phát trạng thái qua Server-Sent Events (SSE). Frontend Next.js sử dụng React Three Fiber để dựng căn hộ, nội thất, người dùng, sensor overlay, dashboard và conversation history. ASR chạy cục bộ bằng faster-whisper `small` trên CPU `int8`. TTS dùng VieNeu-TTS v3 Turbo ONNX `int8` làm engine chính và Supertonic làm fallback; phần suy luận giọng nói không sử dụng Azure Speech hoặc OpenAI Audio API.
 
-**Từ khóa:** AIoT, IoT, căn hộ thông minh, LLM, mô phỏng cảm biến, điều khiển thiết bị, sở thích người dùng, digital twin.
+Kết quả kiểm tra tại thời điểm báo cáo gồm 43 test backend đạt, 1 test bỏ qua theo điều kiện môi trường, Ruff đạt, TypeScript đạt và production build thành công. Dataset baseline có 1.440 mẫu cảm biến, tương ứng một mẫu mỗi phút trong 24 giờ. Một lần chạy end-to-end trên kịch bản `hot_room` đã chuyển trạng thái từ AC tắt ở 27°C và quạt tắt sang AC bật ở 25°C, quạt mức 1; cửa sổ giữ đóng. TTS greedy tạo câu 2,80 giây với thời gian trung bình 2,99 giây qua ba lượt và cho cùng transcript khi kiểm tra vòng bằng ASR.
 
-## 1. Bối cảnh và lý do chọn đề tài
+**Từ khóa:** AIoT, digital twin, smart apartment, personalization, LLM tool calling, context memory, sensor simulation, Vietnamese ASR, offline TTS.
 
-Hệ thống nhà thông minh truyền thống thường dựa trên lệnh trực tiếp hoặc luật cố định, ví dụ “bật điều hòa”, “nếu nhiệt độ lớn hơn 30°C thì bật quạt”. Cách tiếp cận này dễ triển khai nhưng chưa xử lý tốt yêu cầu tự nhiên và phụ thuộc ngữ cảnh như:
+## 1. Giới thiệu
 
-- “Phòng hơi khó chịu.”
+### 1.1. Bối cảnh
+
+Hệ thống nhà thông minh truyền thống thường xử lý lệnh trực tiếp hoặc automation rule cố định, chẳng hạn “bật điều hòa” hoặc “nếu nhiệt độ vượt 30°C thì bật quạt”. Cách tiếp cận này phù hợp với hành vi rõ ràng nhưng khó xử lý yêu cầu phụ thuộc ngữ cảnh:
+
+- “Phòng rất nóng, làm mát vừa phải.”
 - “Tôi chuẩn bị làm việc.”
-- “Không khí ngột ngạt.”
-- “Tắt hết trước khi tôi đi ra ngoài.”
+- “Không khí hơi ngột ngạt.”
+- “Tối nay giữ phòng ấm hơn bình thường.”
+- “Tôi đi ra ngoài, tắt các thiết bị điện.”
 
-Cùng một câu có thể cần kết quả khác nhau tùy nhiệt độ, độ ẩm, CO₂, PM2.5, vị trí người dùng, cửa sổ, trạng thái thiết bị và sở thích đã học. Vì vậy, đề tài xây dựng lớp phiên dịch thông minh nằm giữa người dùng và hệ thống IoT:
+Cùng một yêu cầu có thể dẫn đến kết quả khác nhau tùy nhiệt độ, độ ẩm, CO₂, PM2.5, ánh sáng, vị trí người dùng, cửa sổ, thiết bị đang hoạt động và preference đã lưu. FlatMate Comfort đặt một lớp điều phối giữa người dùng và hạ tầng IoT:
 
 ```text
 Yêu cầu ngôn ngữ tự nhiên
-+ dữ liệu cảm biến
-+ trạng thái thiết bị
-+ ngữ cảnh hoạt động
-+ sở thích cá nhân
++ RoomSnapshot
++ ngữ cảnh hiện diện
++ preference đang có hiệu lực
++ hội thoại và hành động gần đây
         ↓
-Tập giá trị điều khiển thiết bị
+structured tool call
+        ↓
+guardrail + atomic scene validation
+        ↓
+trạng thái digital twin mới
 ```
 
-Đề tài phù hợp môn IoT vì vẫn có đủ chu trình `sensing → communication → processing → actuation → monitoring`, nhưng thay cảm biến và cơ cấu chấp hành thật bằng mô phỏng Python để tập trung vào logic điều phối AIoT, dữ liệu và giao diện digital twin.
+### 1.2. Phát biểu bài toán
 
-## 2. Phát biểu bài toán
-
-### 2.1. Bài toán chính
-
-Xây dựng hệ thống có khả năng biến yêu cầu tiếng Việt thành một tập mục tiêu thiết bị phù hợp với trạng thái căn hộ tại thời điểm yêu cầu.
-
-Có thể mô tả đầu ra bằng hàm:
+Đầu ra điều khiển được mô tả bằng hàm:
 
 ```text
 A = f(R, S, D, C, P, H)
@@ -53,399 +85,589 @@ A = f(R, S, D, C, P, H)
 
 Trong đó:
 
-- `R`: yêu cầu văn bản hoặc transcript giọng nói.
-- `S`: dữ liệu cảm biến môi trường và hiện diện.
-- `D`: trạng thái thiết bị hiện tại.
-- `C`: ngữ cảnh như làm việc, thư giãn, ngủ hoặc vắng nhà.
-- `P`: sở thích đang có hiệu lực.
-- `H`: hành động và hội thoại gần đây.
-- `A`: tập giá trị thiết bị cần áp dụng.
+- `R`: yêu cầu văn bản hoặc transcript tiếng Việt.
+- `S`: sensor data của môi trường và hiện diện.
+- `D`: device state hiện tại.
+- `C`: context như `working`, `relaxing`, `sleeping`, `reading_in_bed` hoặc `away`.
+- `P`: preference đã xác nhận và chưa hết hạn.
+- `H`: tối đa sáu lượt hội thoại hoàn tất gần nhất cùng session và recent device actions khi cần.
+- `A`: tập target có kiểu dữ liệu, miền giá trị và quan hệ ràng buộc rõ ràng.
 
-### 2.2. Đầu vào
-
-| Nhóm | Dữ liệu |
-| --- | --- |
-| Yêu cầu người dùng | Văn bản tiếng Việt hoặc âm thanh từ microphone |
-| Môi trường | Nhiệt độ, độ ẩm, CO₂, PM2.5, ánh sáng, tiếng ồn |
-| Hiện diện | Có người trong phòng, tại bàn, trên giường |
-| Trạng thái mở | Cửa sổ, vị trí rèm |
-| Thiết bị | Điều hòa, quạt, đèn, máy lọc, thiết bị độ ẩm, máy tính, màn hình, ổ cắm |
-| Bộ nhớ | Sở thích rõ ràng, tạm thời và sở thích học từ correction |
-
-### 2.3. Đầu ra
-
-Đầu ra không chỉ là tên thiết bị. Hệ thống tạo cấu hình có kiểu và miền giá trị rõ ràng, ví dụ:
+Ví dụ output nội bộ:
 
 ```json
 {
   "change_mode": "bounded",
   "ac_power": true,
-  "ac_temperature_c": 24,
+  "ac_temperature_c": 25,
   "fan_power": true,
   "fan_speed": 1,
   "window_state": "closed",
-  "reason": "Phòng nóng và ẩm; giảm nhiệt độ trong giới hạn an toàn."
+  "reason": "Phòng nóng; làm mát vừa phải bằng AC và quạt nhẹ."
 }
 ```
 
-## 3. Mục tiêu đề tài
+### 1.3. Mục tiêu
 
-### 3.1. Mục tiêu tổng quát
+1. Mô phỏng đầy đủ chu trình `sensing → processing → actuation → monitoring` mà không cần phần cứng thật.
+2. Dựng digital twin một căn hộ một phòng ngủ theo floor plan có kích thước và độ tin cậy được ghi rõ.
+3. Cho phép trợ lý hiểu yêu cầu tiếng Việt và chọn structured tools thay vì backend phân loại bằng danh sách từ khóa.
+4. Giữ mọi thay đổi thiết bị trong miền hợp lệ và áp dụng nguyên tử.
+5. Cá nhân hóa bằng explicit preference, temporary preference và correction evidence.
+6. Hỗ trợ push-to-talk tiếng Việt và TTS offline ổn định.
+7. Trình bày trạng thái, trace, lịch sử và kết quả mô phỏng trên website responsive.
 
-Xây dựng nguyên mẫu AIoT cá nhân hóa có thể hiểu yêu cầu tiếng Việt, đọc trạng thái căn hộ, chọn hành động thiết bị hợp lệ, mô phỏng tác động và trình bày toàn bộ kết quả trên website.
+### 1.4. Đóng góp chính
 
-### 3.2. Mục tiêu cụ thể
+- Digital twin 3D có bố cục căn hộ một phòng ngủ, nội thất, người dùng và vị trí sensor/device.
+- Simulation engine xác định được, có 10 scenario và baseline 24 giờ.
+- Assistant orchestration dùng Responses API, structured function tools và observable trace.
+- Guardrail kiểm tra schema, range, bounded change, xung đột thiết bị và atomicity.
+- Preference store có context, intent, expiry, confidence, evidence và `last_used_at`.
+- Speech pipeline tiếng Việt với ASR và TTS suy luận cục bộ.
+- Bộ kiểm thử backend, contract, frontend geometry, voice, privacy và accessibility.
 
-1. Sinh dữ liệu cảm biến xác định được bằng Python và lưu lịch sử 24 giờ.
-2. Mô phỏng thiết bị, trạng thái người dùng và tác động qua lại giữa thiết bị với môi trường.
-3. Dùng LLM để hiểu toàn bộ câu và chọn structured tool call, không phân loại ý định bằng danh sách từ khóa backend.
-4. Kiểm tra mọi mục tiêu bằng guardrail trước khi thay đổi trạng thái.
-5. Hỗ trợ yêu cầu văn bản, push-to-talk tiếng Việt và phản hồi TTS tiếng Việt.
-6. Lưu và áp dụng sở thích theo context và intent.
-7. Hiển thị căn hộ 3D, dashboard, biểu đồ, device controls, trace và lịch sử hội thoại.
-8. Giữ hệ thống chạy được khi không có thiết bị IoT vật lý.
+## 2. Phạm vi và yêu cầu hệ thống
 
-## 4. Phạm vi
+### 2.1. Trong phạm vi
 
-### 4.1. Trong phạm vi
+- Một người dùng, một căn hộ một phòng ngủ và một simulation process.
+- Cảm biến và thiết bị được mô phỏng bằng Python.
+- Text request, push-to-talk, TTS, manual controls và scenario activation.
+- REST API cho command/query; SSE cho snapshot và trace realtime.
+- SQLite cho history, action, conversation, trace và preference.
+- LLM qua OpenAI-compatible Responses API.
+- Frontend tiếng Việt trên desktop, tablet và mobile.
 
-- Một người dùng và một căn hộ studio cố định.
-- Khu vực làm việc, phòng ngủ, sinh hoạt, cửa sổ; bếp và phòng tắm chỉ để minh họa không gian.
-- Cảm biến, thiết bị và dữ liệu đều được mô phỏng.
-- Giao tiếp web qua REST và Server-Sent Events (SSE).
-- LLM qua OpenAI-compatible Responses API với structured tools.
-- SQLite cho lịch sử, hội thoại, trace và preference.
-- Giao diện tiếng Việt, responsive trên desktop, tablet và mobile.
+### 2.2. Ngoài phạm vi
 
-### 4.2. Ngoài phạm vi
+- ESP32, Raspberry Pi, MQTT broker, Home Assistant integration hoặc thiết bị vật lý.
+- Camera, khóa cửa, báo cháy, báo gas, cảnh báo khẩn cấp và mobile push.
+- Authentication, multi-user, multi-apartment và phân quyền.
+- Điều khiển an toàn cấp công nghiệp hoặc medical-grade.
+- Tự động suy ra preference chỉ từ hành vi thụ động chưa được người dùng xác nhận.
 
-- Kết nối ESP32, Raspberry Pi, MQTT, Home Assistant hoặc thiết bị thật.
-- Camera, khóa cửa, báo cháy, báo gas, cảnh báo khẩn cấp.
-- Nhiều căn hộ, nhiều người dùng hoặc xác thực tài khoản.
-- Hệ thống điều khiển an toàn cấp công nghiệp.
-- Tự học hoàn toàn từ hành vi dài hạn mà không có correction; đây là hướng phát triển.
+### 2.3. Yêu cầu chức năng
 
-## 5. Thành phần IoT được mô phỏng
-
-### 5.1. Cảm biến
-
-| Dữ liệu mô phỏng | Thiết bị thật tương đương | Vai trò trong quyết định |
-| --- | --- | --- |
-| Nhiệt độ, độ ẩm | SHT31, BME280 | Điều hòa, quạt, hút ẩm hoặc tạo ẩm |
-| CO₂ | SCD40, SCD41 | Phát hiện phòng bí; ưu tiên thông gió |
-| PM2.5 | PMS5003, SEN55 | Điều khiển máy lọc không khí |
-| Ánh sáng | BH1750 | Độ sáng đèn và vị trí rèm |
-| Tiếng ồn | Microphone/SPL sensor | Đánh giá độ ồn của môi trường và thiết bị |
-| Hiện diện | mmWave LD2410/LD2450 | Xác định có người, làm việc, ngủ hoặc vắng nhà |
-| Giường, bàn | Pressure/occupancy sensor | Xác định vùng hoạt động |
-| Cửa sổ | Contact sensor | Tránh bật điều hòa khi cửa sổ mở |
-| Công suất | Smart plug/power meter | Theo dõi máy tính, màn hình và ổ cắm |
-
-Các tên phần cứng trên chỉ thể hiện khả năng ánh xạ sang mô hình IoT thật. Phiên bản hiện tại không giao tiếp với các thiết bị này.
-
-### 5.2. Thiết bị chấp hành
-
-| Thiết bị | Thuộc tính điều khiển |
+| Mã | Yêu cầu |
 | --- | --- |
-| Điều hòa | Bật/tắt, mode, 18–30°C, fan mode |
-| Quạt | Bật/tắt, tốc độ 0–3, đảo gió |
-| Đèn chính, đèn đầu giường | Bật/tắt, độ sáng 0–100%, nhiệt màu 2700–6500K |
-| Máy lọc không khí | Bật/tắt, tốc độ 0–3 |
-| Rèm | Vị trí 0–100% |
-| Cửa sổ | Mở hoặc đóng |
-| Thiết bị độ ẩm | Tạo ẩm/hút ẩm, mục tiêu 35–70% |
-| Máy tính, màn hình | Bật/tắt qua smart plug mô phỏng |
+| FR-01 | Đọc snapshot gồm môi trường, hiện diện, opening, power và device state |
+| FR-02 | Kích hoạt, pause, resume, reset và đổi tốc độ simulation |
+| FR-03 | Điều khiển từng thiết bị bằng command đã kiểm tra |
+| FR-04 | Nhận yêu cầu text/voice và phát assistant trace |
+| FR-05 | Lưu, cập nhật, xóa và reset preference học từ correction |
+| FR-06 | Hiển thị digital twin, dashboard 24 giờ và conversation history |
+| FR-07 | Tạo transcript tiếng Việt và WAV tiếng Việt cục bộ |
 
-## 6. Kiến trúc hệ thống
+### 2.4. Yêu cầu phi chức năng
 
-![Kiến trúc tổng thể hệ thống FlatMate Comfort](docs/diagrams/aiot-system-architecture.drawio.svg)
+- **Determinism:** cùng seed và cùng chuỗi action phải tái tạo được dữ liệu.
+- **Atomicity:** scene có một field sai không được cập nhật dở dang.
+- **Observability:** chỉ hiển thị event, tool, validation và rationale ngắn; không hiển thị private chain-of-thought.
+- **Graceful degradation:** lỗi microphone, TTS, WebGL hoặc LLM không làm mất text response hay state đã xác nhận.
+- **Privacy boundary:** audio được xử lý cục bộ; transcript và snapshot cần thiết có thể được gửi tới LLM bên ngoài khi assistant được sử dụng.
+- **Accessibility:** giao diện có text equivalent khi 3D/WebGL không khả dụng.
 
-Nguồn chỉnh sửa: [`docs/diagrams/aiot-system-architecture.drawio`](docs/diagrams/aiot-system-architecture.drawio).
+## 3. Related work
 
-Kiến trúc gồm bốn lớp:
+### 3.1. Home Assistant
 
-1. **Tương tác người dùng:** website Next.js nhận text/audio và hiển thị 3D, dashboard, trace, history.
-2. **Giọng nói và trợ lý AI:** faster-whisper nhận dạng tiếng Việt; Assistant Orchestrator quản lý tool loop; LLM chọn hành động; VietNormalizer và Supertonic tạo âm thanh phản hồi.
-3. **Mô phỏng và điều khiển:** Python duy trì `RoomSnapshot`, sinh sensor, kiểm tra guardrail, áp dụng device action và phát SSE.
-4. **Dữ liệu:** SQLite lưu samples, actions, conversations, traces, preferences và evidence; JSON định nghĩa kịch bản; CSV/JSON chứa dataset sinh tự động.
+Home Assistant là nền tảng home automation mã nguồn mở, ưu tiên local control và privacy, với kiến trúc component để tích hợp nhiều loại thiết bị [2]. FlatMate Comfort không thay thế Home Assistant và hiện không có device integration thật. Điểm tập trung của đề tài là mô phỏng có kiểm soát, giải thích luồng quyết định và cá nhân hóa yêu cầu mơ hồ bằng LLM.
 
-### 6.1. Lựa chọn kiến trúc
+### 3.2. Eclipse Ditto
 
-- **SSE thay WebSocket:** server chủ yếu đẩy snapshot và trace; lệnh điều khiển vẫn dùng REST.
-- **SQLite thay hệ quản trị phân tán:** một người dùng và một process mô phỏng chưa cần Redis/PostgreSQL.
-- **Trạng thái hiện tại trong memory:** giảm độ phức tạp; SQLite giữ lịch sử và bộ nhớ lâu dài.
-- **Frontend và backend tách rời:** frontend có thể triển khai tĩnh trên Netlify; backend cần process lâu dài, volume ghi được và tài nguyên cho ASR/TTS.
+Eclipse Ditto triển khai digital twin pattern cho IoT, trong đó software representation phản ánh trạng thái của real-world thing [3]. FlatMate Comfort áp dụng cùng tư tưởng representation nhưng thu hẹp vào một căn hộ một phòng ngủ. `RoomSnapshot` là authoritative in-memory state, còn website là visualization và interaction layer. Mô hình hiện tại không hướng tới distributed twin registry hoặc cloud-scale tenancy.
 
-## 7. Quy trình xử lý yêu cầu
+### 3.3. Mem0 và memory layer cho AI assistant
 
-![Luồng chuyển yêu cầu thành hành động thiết bị](docs/diagrams/request-to-device-flow.drawio.svg)
+Mem0 cung cấp memory layer tổng quát với user/session/agent memory và retrieval nhiều tín hiệu [4]. FlatMate Comfort không dùng vector database hoặc semantic embedding. Bộ nhớ được thiết kế theo domain smart apartment: mỗi record có `context`, `requested_intent`, typed `preferred_result`, `source`, `confidence`, expiry và evidence. Cách này giảm độ linh hoạt nhưng tăng khả năng kiểm tra, giải thích và ánh xạ trực tiếp sang device targets.
 
-Nguồn chỉnh sửa: [`docs/diagrams/request-to-device-flow.drawio`](docs/diagrams/request-to-device-flow.drawio).
+### 3.4. So sánh định hướng
 
-Luồng chính:
+| Hệ thống | Mục tiêu chính | Device integration | Digital twin | Personalized memory | Vị trí của FlatMate Comfort |
+| --- | --- | --- | --- | --- | --- |
+| Home Assistant | Home automation thực tế | Rất rộng | Entity/state model | Automation/user config | Không cạnh tranh; có thể trở thành adapter tương lai |
+| Eclipse Ditto | Digital twin platform | Qua connectivity layer | Tổng quát, cloud-oriented | Không phải trọng tâm | Dùng pattern ở quy mô căn hộ nhỏ |
+| Mem0 | Memory cho AI application | Không chuyên IoT | Không | Tổng quát, semantic | Tham chiếu cho hướng mở rộng memory |
+| FlatMate Comfort | AIoT personalization demo | Mô phỏng | Căn hộ 3D + RoomSnapshot | Structured SQLite preference | Tối ưu cho demo kiểm chứng được |
 
-1. Người dùng nhập text hoặc nhấn microphone để bắt đầu và nhấn lần nữa để gửi.
-2. Nếu là audio, backend dùng faster-whisper để tạo transcript tiếng Việt.
-3. Backend tạo `request_id`, đọc snapshot và context hiện tại, sau đó phát trace quan sát được.
-4. LLM nhận system prompt và danh sách công cụ.
-5. LLM gọi `get_room_snapshot` và, khi có bộ nhớ, `get_relevant_preferences(context)`.
-6. LLM tự xác định ý định từ toàn bộ câu, dữ liệu sensor và preference.
-7. Nếu cần điều khiển, LLM gọi `set_room_scene` với mục tiêu số.
-8. Pydantic và guardrail kiểm tra toàn bộ scene. Scene sai bị từ chối mà không làm thay đổi một phần trạng thái.
-9. Scene hợp lệ được áp dụng vào mô phỏng, ghi SQLite và phát snapshot/trace qua SSE.
-10. Website cập nhật 3D, dashboard và phản hồi cuối; TTS được gọi nếu người dùng bật đọc phản hồi.
+## 4. Kiến trúc hệ thống
 
-## 8. Mô phỏng và dataset
+![Hình 1. Kiến trúc tổng thể FlatMate Comfort](docs/figures/flatmate-system-architecture.png)
 
-### 8.1. Tính xác định
+Nguồn chỉnh sửa: [`docs/figures/flatmate-system-architecture.drawio`](docs/figures/flatmate-system-architecture.drawio).
 
-- Seed mặc định: `42`.
-- Mỗi 2 giây thực tương ứng 1 phút mô phỏng.
-- Reset khôi phục seed, thời gian, trạng thái và chuỗi dữ liệu tương lai giống nhau.
-- Hệ thống tạo trước 24 giờ baseline với tần suất một mẫu mỗi phút.
-- Dashboard chỉ đọc tối đa 24 giờ gần nhất và hỗ trợ hover theo mốc thời gian.
+### 4.1. Lớp tương tác
 
-Mỗi giá trị môi trường được cập nhật theo dạng tổng quát:
+Frontend dùng Next.js 16, React 19, Three.js và React Three Fiber. Trang `/` hiển thị digital twin và assistant; `/dashboard` hiển thị metric, chart và manual controls; `/history` hiển thị conversation. Browser dùng `MediaRecorder` để ghi audio và `EventSource` để nhận SSE.
+
+### 4.2. Lớp dịch vụ
+
+FastAPI cung cấp 18 API operations. Pydantic model đặt `extra="forbid"` để từ chối field ngoài contract. `AssistantOrchestrator` quản lý tối đa năm vòng tool call, giới hạn conversation context ở sáu lượt hoàn tất gần nhất và chỉ cho phép một pending scene trong một request.
+
+### 4.3. Lớp digital twin và mô phỏng
+
+`SimulationEngine` sở hữu `RoomSnapshot`, simulation clock, active scenario và state transition. Mỗi command được preview và validate trước khi state authoritative thay đổi. `EventBroker` phát snapshot, trace và simulation event theo sequence tăng dần.
+
+### 4.4. Lớp dữ liệu
+
+SQLite lưu:
+
+- `sensor_samples`
+- `device_actions`
+- `simulation_events`
+- `conversations`
+- `assistant_trace_events`
+- `preferences`
+- `preference_evidence`
+
+Scenario được định nghĩa bằng JSON. Dataset baseline được export sang CSV để kiểm tra và trình bày độc lập với database runtime.
+
+### 4.5. Boundary cục bộ và cloud
+
+Simulation, SQLite, ASR và TTS chạy cục bộ. LLM là dependency bên ngoài khi `OPENAI_API_KEY` được cấu hình. Audio gốc không được gửi qua assistant API; backend chỉ gửi text, trạng thái cần thiết và tool output. Nếu LLM không khả dụng, dashboard, scenario, manual controls, ASR và TTS vẫn có thể hoạt động độc lập.
+
+## 5. Digital twin căn hộ một phòng ngủ
+
+### 5.1. Nguồn hình học
+
+Mô hình dựa trên `one_bedroom_digital_twin_handoff`, gồm source floor plan và specification JSON. Envelope lớn nhất xấp xỉ `6,73 m × 7,81 m`; ceiling height là `2,45 m`. Wall thickness mặc định là 0,20 m cho exterior wall và 0,12 m cho interior wall. Các giá trị này phục vụ reconstruction draft, không phải construction drawing.
+
+Specification ghi rõ xung đột kích thước: tổng ba clear segments bên phải là 7,35 m trong khi overall annotation là 7,81 m. Hệ thống giữ 7,81 m cho outside-to-outside envelope và ưu tiên room clear dimensions khi endpoint rõ ràng; không âm thầm làm méo floor plan để ép tất cả annotation trùng nhau.
+
+### 5.2. Không gian
+
+| Không gian | Diện tích ghi trên floor plan | Vai trò trong digital twin |
+| --- | ---: | --- |
+| Kitchen/dining | 10,01 m² | Bếp chữ L, refrigerator, dining table bốn ghế |
+| Living room | 14,87 m² | Sofa, armchair, coffee table, TV/media unit |
+| Bedroom | 14,87 m² | Bed, bedside tables, wardrobe, window và curtain |
+| Bathroom | 3,09 m² | Bathtub, toilet, vanity |
+| Corridor | 2,22 m² | Kết nối living room, bathroom và bedroom |
+| Entry hall | 2,40 m² | Entry door và storage |
+| Closet/balcony | 3,90 m² | Storage và glazing theo source image |
+
+### 5.3. Cảm biến mô phỏng
+
+| Nhóm | Trường dữ liệu | Thiết bị vật lý tương đương |
+| --- | --- | --- |
+| Môi trường | temperature, humidity | SHT31/BME280 |
+| Chất lượng không khí | CO₂, PM2.5 | SCD40/SCD41, PMS5003/SEN55 |
+| Ánh sáng và tiếng ồn | lux, dB | BH1750, SPL sensor |
+| Hiện diện | room, bed, desk occupancy | mmWave, pressure sensor |
+| Opening | window state, curtain position | contact sensor, curtain motor feedback |
+| Năng lượng | computer và smart-plug power | smart plug/power meter |
+
+Các tên phần cứng chỉ là mapping kỹ thuật. Phiên bản hiện tại không kết nối phần cứng thật.
+
+### 5.4. Thiết bị chấp hành
+
+| Thiết bị | Thuộc tính |
+| --- | --- |
+| AC | power, mode, 18–30°C, fan mode |
+| Fan | power, speed 0–3, oscillation |
+| Main light, bedside light | power, brightness 0–100%, 2700–6500 K |
+| Air purifier | power, speed 0–3 |
+| Curtain | position 0–100% |
+| Window | open/closed |
+| Humidity device | humidify/dehumidify, target 35–70% |
+| Computer, monitor | smart-plug state và power |
+
+### 5.5. Mô hình biến thiên
+
+Baseline có một mẫu mỗi phút. Giá trị môi trường được cập nhật theo dạng:
 
 ```text
-x(t+1) = clamp(x(t) + daily_drift + device_effect + seeded_noise)
+x(t+1) = clamp(x(t) + daily_drift + occupancy_effect + device_effect + seeded_noise)
 ```
 
-Ví dụ:
+Các quan hệ chính:
 
 - Có người và cửa sổ đóng làm CO₂ tăng.
-- Cửa sổ mở làm CO₂ giảm nhanh hơn.
-- Máy lọc giảm PM2.5 nhưng không loại bỏ CO₂.
-- Điều hòa đưa nhiệt độ dần về target.
-- Quạt, điều hòa và máy lọc làm thay đổi độ ồn.
-- Rèm và thời gian trong ngày ảnh hưởng ánh sáng môi trường.
+- Cửa sổ mở làm CO₂ giảm nhưng AC phải tắt.
+- Air purifier giảm PM2.5, không được mô tả là thiết bị loại CO₂.
+- AC đưa nhiệt độ dần về target.
+- Fan, AC và purifier góp phần vào noise level.
+- Thời gian trong ngày và curtain position ảnh hưởng ambient light.
 
-### 8.2. Kịch bản dữ liệu
+## 6. Trợ lý AI và guardrail
 
-Hệ thống có 10 kịch bản JSON: `working`, `relaxing`, `sleeping`, `reading_in_bed`, `hot_room`, `stuffy_air`, `polluted_air`, `strong_sunlight`, `quiet_comfort` và `empty_room`.
-
-Kịch bản chỉ thiết lập dữ liệu đầu vào mô phỏng. Mọi action trong kịch bản vẫn đi qua cùng đường kiểm tra trạng thái như thao tác thủ công và hành động của trợ lý.
-
-## 9. LLM, tool call và guardrail
-
-### 9.1. Vai trò của LLM
-
-LLM không trực tiếp sửa biến Python và không được quyền bỏ qua validation. Vai trò của LLM:
-
-- Hiểu tiếng Việt và ý nghĩa toàn câu.
-- Quyết định cần đọc dữ liệu hoặc bộ nhớ nào.
-- Chọn công cụ phù hợp.
-- Chuyển ý định thành giá trị có cấu trúc.
-- Giải thích ngắn kết quả hoặc hỏi lại khi yêu cầu chưa đủ rõ.
-
-Backend không dùng danh sách từ khóa như “relaxing” để phân loại câu người dùng. Context mô phỏng được xác định từ dữ liệu hiện diện; LLM dùng toàn bộ câu để hiểu intent và chọn tool.
-
-### 9.2. Công cụ chính
+### 6.1. Tool surface
 
 | Tool | Chức năng |
 | --- | --- |
-| `get_room_snapshot` | Đọc sensor, openings, occupancy, power và device state |
-| `get_recent_actions` | Đọc các thay đổi gần đây khi câu lệnh nhắc đến hành động trước |
-| `get_relevant_preferences` | Lấy preference theo context đang hiểu |
-| `save_preference` | Lưu sở thích explicit hoặc temporary |
-| `record_preference_correction` | Lưu correction và tăng bằng chứng học |
-| `set_room_scene` | Đề xuất một tập mục tiêu thiết bị nguyên tử |
+| `get_room_snapshot` | Đọc sensor, occupancy, opening, device và power |
+| `get_recent_actions` | Đọc action gần đây cho tham chiếu “giảm thêm”, “như trước” |
+| `get_relevant_preferences` | Truy xuất preference theo context đã hiểu |
+| `save_preference` | Lưu explicit hoặc temporary preference |
+| `record_preference_correction` | Lưu correction evidence và cập nhật confidence |
+| `set_room_scene` | Đề xuất tập device targets nguyên tử |
 
-### 9.3. Guardrail
+Assistant không trực tiếp sửa object Python. `set_room_scene` chỉ tạo pending scene. State được cập nhật sau khi final response hợp lệ và scene vượt qua preview validation.
 
-| Quy tắc | Giá trị hiện tại |
-| --- | --- |
-| Nhiệt độ điều hòa | 18–30°C |
-| Yêu cầu cảm tính: thay đổi AC tối đa mỗi action | 2°C |
-| Yêu cầu cảm tính: thay đổi quạt/máy lọc | 1 mức |
-| Yêu cầu cảm tính: thay đổi độ sáng/rèm | 20% |
-| Cửa sổ mở | Điều hòa phải tắt |
-| Bật điều hòa/làm lạnh | Cửa sổ được đóng |
-| Tắt thiết bị có level | Level được chuẩn hóa về 0 |
-| Scene có trường sai | Từ chối toàn bộ, không cập nhật một phần |
+### 6.2. Guardrail
 
-`change_mode="explicit"` dùng khi người dùng nêu rõ trạng thái hoặc giá trị. `change_mode="bounded"` dùng cho câu cảm tính như “hơi nóng” hoặc “sáng hơn một chút”. Với bounded, hệ thống áp dụng ngay mức tối đa an toàn thay vì chỉ từ chối vì target ban đầu quá lớn.
+| Quy tắc | Giá trị |
+| --- | ---: |
+| AC temperature | 18–30°C |
+| Fan/purifier speed | 0–3 |
+| Light brightness | 0–100% |
+| Color temperature | 2700–6500 K |
+| Humidity target | 35–70% |
+| Bounded AC delta | tối đa 2°C mỗi request |
+| Bounded fan/purifier delta | tối đa 1 mức |
+| Bounded light/curtain delta | tối đa 20% |
 
-## 10. Học sở thích cá nhân
+Các ràng buộc liên thuộc:
 
-![Vòng lưu, truy xuất và cập nhật sở thích](docs/diagrams/preference-learning-loop.drawio.svg)
+- Mở cửa sổ tự động tắt AC.
+- Bật AC đóng cửa sổ.
+- Device `power=false` không được đi cùng level khác 0.
+- Device `power=true` không được đi cùng level bằng 0.
+- Scene có target sai bị từ chối toàn bộ.
 
-Nguồn chỉnh sửa: [`docs/diagrams/preference-learning-loop.drawio`](docs/diagrams/preference-learning-loop.drawio).
+`change_mode="explicit"` dùng khi người dùng nêu giá trị rõ ràng. `change_mode="bounded"` dùng cho yêu cầu cảm tính; guardrail giới hạn mức thay đổi thay vì cho phép bước nhảy lớn.
 
-### 10.1. Cơ chế hiện tại
+### 6.3. Observable trace
 
-Hệ thống có ba nhóm preference:
-
-- **Explicit:** người dùng yêu cầu ghi nhớ rõ ràng; confidence `1.0`.
-- **Temporary:** giống explicit nhưng có `expires_at`.
-- **Learned:** hình thành khi người dùng sửa kết quả trước đó; có evidence và observation count.
-
-Correction đầu tiên tạo learned preference với confidence `0.65`. Các lần lặp tiếp theo cập nhật:
+Một request thường tạo chuỗi event:
 
 ```text
-confidence = min(0.95, 0.5 + observation_count × 0.15)
+transcript_final
+→ context_inferred
+→ snapshot_read
+→ preference_retrieved
+→ model_requested
+→ tool_requested
+→ validation_completed
+→ action_applied
+→ state_updated
+→ assistant_response
 ```
 
-Preference correction có hiệu lực ngay khi LLM xác định đây là sở thích hữu ích; không yêu cầu một hộp thoại xác nhận riêng. Khi truy xuất, hệ thống lọc theo context, trạng thái confirmed và thời gian hết hạn. LLM chỉ dùng preference nếu `requested_intent` phù hợp yêu cầu hiện tại.
+Trace lưu title, summary, safe data, status, timestamp và duration khi có. Không lưu hoặc hiển thị chain-of-thought nội bộ.
 
-Thứ tự ưu tiên:
+## 7. Bộ nhớ và cá nhân hóa
+
+### 7.1. Conversation context
+
+Mỗi request lấy tối đa sáu conversation đã `completed`, cùng `session_id`, theo thứ tự thời gian. Failed request và session khác không được đưa vào context. Giới hạn này giữ prompt bounded; summary compaction chưa được triển khai vì demo chưa có session dài hạn.
+
+### 7.2. Preference record
+
+Mỗi preference gồm:
 
 ```text
-explicit → temporary → learned
+context
+requested_intent
+preferred_result
+source
+confidence
+observation_count
+confirmed
+expires_at
+created_at / updated_at / last_used_at
 ```
 
-Trong cùng nhóm và cùng phạm vi, bản cập nhật mới hơn được ưu tiên.
-
-### 10.2. Mở rộng học từ hành vi
-
-Phiên bản hiện tại chưa tự kết luận sở thích chỉ từ chuỗi thao tác thủ công. Hướng mở rộng:
-
-1. Tạo feature từ context, sensor trước hành động và target sau hành động.
-2. Nhóm các action có cùng intent và điều kiện gần nhau.
-3. Chỉ tạo candidate khi mẫu lặp đủ số lần trong nhiều phiên.
-4. Giảm trọng số evidence cũ theo thời gian.
-5. So sánh candidate với preference explicit để tránh ghi đè mong muốn người dùng.
-6. Vẫn chạy target qua guardrail trước khi áp dụng.
-
-## 11. Giao diện website
-
-### 11.1. Digital twin 3D
-
-- Thể hiện các vùng căn hộ, người dùng, nội thất, sensor và vị trí thiết bị.
-- Cho phép chọn ngữ cảnh làm việc, phòng khách, đọc trên giường, ngủ và ra ngoài.
-- Overlay riêng cho nhiệt độ, không khí, ánh sáng, tiếng ồn và thiết bị.
-- Có bảng trạng thái văn bản tương đương khi WebGL không khả dụng.
-
-### 11.2. Dashboard
-
-- Tile số liệu cho nhiệt độ, độ ẩm, CO₂, PM2.5, lux và dB.
-- Biểu đồ nhiệt độ, CO₂, PM2.5 trong 24 giờ gần nhất.
-- Hover xem timestamp và giá trị từng mốc.
-- Bảng điều khiển chung cho thiết bị.
-- Cập nhật trực tiếp bằng SSE.
-
-### 11.3. Assistant trace và history
-
-Trace chỉ hiển thị dữ liệu quan sát được, trạng thái tool và lý do ngắn; không hiển thị chain-of-thought nội bộ của mô hình.
-
-Chuỗi sự kiện điển hình:
+Source priority khi retrieval:
 
 ```text
-request received
-→ context observed
-→ snapshot read
-→ preference lookup
-→ model request
-→ tool requested
-→ validation
-→ state applied
-→ final response
+explicit → temporary → user_correction → learned
 ```
 
-Trang history lưu yêu cầu text/voice, phản hồi cuối, trạng thái completed/failed và thời gian.
+Trong cùng source, context trùng chính xác được ưu tiên hơn `any`; record mới hơn đứng trước. Record hết hạn hoặc chưa confirmed không được trả về.
 
-## 12. Xử lý giọng nói tiếng Việt
+### 7.3. Explicit và temporary preference
 
-### 12.1. ASR
+Explicit preference có confidence `1.0`. Temporary preference cũng có confidence `1.0` nhưng bắt buộc có `expires_at`. Khi preference thực sự được áp dụng, backend cập nhật `last_used_at`.
 
-- Trình duyệt ghi audio bằng `MediaRecorder`.
-- Backend dùng `faster-whisper` với model `large-v3-turbo`.
-- Ngôn ngữ được cố định là tiếng Việt.
-- Chạy CPU `int8`, beam size 5, có VAD và hotwords tên thiết bị.
-- Wake phrase `Hey FlatMate` là tùy chọn; push-to-talk vẫn là luồng chính.
+### 7.4. Correction evidence
 
-### 12.2. TTS
+Correction đầu tiên tạo record `user_correction` với:
 
 ```text
-Phản hồi LLM
-→ từ điển riêng của ứng dụng
-→ chuẩn hóa số và đơn vị
+confidence = 0.85
+observation_count = 1
+```
+
+Các correction tiếp theo cùng context và intent cập nhật:
+
+```text
+observation_count = observation_count + 1
+confidence = min(0.98, 0.8 + observation_count × 0.05)
+```
+
+Mỗi lần sửa được lưu riêng trong `preference_evidence`. Chức năng reset learned memory chỉ xóa source `learned` và `user_correction`, không xóa explicit hoặc temporary preference.
+
+### 7.5. Đánh giá thiết kế memory
+
+Thiết kế hiện tại phù hợp demo vì typed target có thể validate bằng cùng `RoomSceneTargets`. Hạn chế là retrieval dựa trên context và thứ tự, chưa có semantic similarity, deduplication giữa intent gần nghĩa, temporal decay hoặc cross-session summarization như các memory framework tổng quát. Hướng nâng cấp là thêm embedding index cho `requested_intent`, nhưng vẫn giữ typed target và evidence trong SQLite làm source of truth.
+
+## 8. Xử lý giọng nói tiếng Việt
+
+### 8.1. ASR
+
+Browser thu mono audio với `echoCancellation`, `noiseSuppression` và `autoGainControl`. Backend dùng faster-whisper `1.2.1`:
+
+```text
+model = small
+device = cpu
+compute_type = int8
+beam_size = 2
+temperature = 0
+language = vi
+condition_on_previous_text = false
+VAD = enabled
+```
+
+Initial prompt và hotwords chứa tên thiết bị, số, đơn vị và trạng thái smart apartment. `condition_on_previous_text=false` giảm nguy cơ model lặp nội dung từ segment trước.
+
+### 8.2. TTS
+
+Pipeline hiện tại:
+
+```text
+assistant response
+→ loại Markdown, URL và punctuation gây ngập ngừng
+→ app lexicon cho AC, AIoT, ASR, TTS, CO₂, PM2.5, ppm, µg/m³, °C
 → VietNormalizer
-→ Supertonic 3, lang="vi", voice F1
-→ WAV phát trong trình duyệt
+→ VieNeu v3 Turbo ONNX int8, voice "Mai Anh", 48 kHz
+→ Supertonic F4 fallback
+→ WAV PCM 16-bit
 ```
 
-Cấu hình mặc định dùng 10 bước tổng hợp và speed `1.15`. Nếu TTS lỗi, hành động thiết bị vẫn hoàn tất và văn bản cuối vẫn hiển thị.
+VieNeu inference dùng `temperature=0`, `repetition_penalty=1.25`, `silence_p=0.08` và `crossfade_p=0.02`. Greedy decoding được chọn sau khi ba lượt tạo cùng một câu đều cho transcript vòng giống nhau. Nếu VieNeu initialization thất bại, lỗi được cache để không tải lại model ở mỗi request; wrapper chuyển sang Supertonic. Response header phản ánh engine và voice thực tế.
 
-## 13. Kịch bản minh họa
+Model assets cần tải ở lần sử dụng đầu tiên. Sau khi cache hoàn tất, ASR và TTS inference chạy cục bộ; không gọi dịch vụ speech cloud.
 
-### 13.1. Phòng rất nóng
+## 9. Phân tích mã nguồn
 
-```text
-Yêu cầu: “Phòng rất nóng.”
-Trạng thái: 29°C, độ ẩm 72%, AC 26°C, quạt tắt, cửa sổ đóng.
-Kết quả bounded: AC 24°C, quạt mức 1, cửa sổ giữ đóng.
-```
+### 9.1. Quy mô
 
-Hệ thống giảm AC tối đa 2°C trong một action cảm tính và áp dụng ngay thay vì báo không thể thực hiện.
+| Nhóm | File | Dòng mã tại thời điểm đo |
+| --- | ---: | ---: |
+| Backend application | 13 Python files | 3.274 |
+| Backend tests | 6 Python files | 1.009 |
+| Frontend `src` | 16 TS/TSX files | 2.198 |
+| API surface | 18 operations | — |
 
-### 13.2. CO₂ cao
+Số dòng chỉ mô tả snapshot repository, không dùng làm chỉ số chất lượng độc lập.
 
-```text
-Yêu cầu: “Không khí ngột ngạt.”
-Trạng thái: CO₂ 1800 ppm, PM2.5 thấp, cửa sổ đóng, AC bật.
-Kết quả: mở cửa sổ và tắt AC trong cùng scene.
-```
+### 9.2. Backend modules
 
-Máy lọc không khí không được mô tả là thiết bị loại bỏ CO₂. PM2.5 và CO₂ được xử lý bằng hai logic khác nhau.
-
-### 13.3. Tắt toàn bộ thiết bị điện
-
-```text
-Yêu cầu: “Tôi đi ra ngoài, tắt hết tất cả.”
-Kết quả: tắt AC, quạt, đèn, máy lọc, thiết bị độ ẩm, máy tính, màn hình và ổ cắm.
-Rèm và cửa sổ giữ nguyên nếu người dùng không yêu cầu.
-```
-
-## 14. Tiêu chí đánh giá
-
-| Nhóm đánh giá | Chỉ số đề xuất | Cách kiểm tra |
-| --- | --- | --- |
-| Hiểu yêu cầu | Tỷ lệ chọn đúng tool và đúng nhóm thiết bị | Bộ câu lệnh tiếng Việt có expected action |
-| Giá trị đầu ra | Tỷ lệ target đúng schema và hợp lý với sensor | So sánh với expected ranges |
-| Guardrail | Tỷ lệ chặn đúng action sai; không false-negative nghiêm trọng | Test biên và test xung đột AC/cửa sổ |
-| Tính nguyên tử | State không đổi khi một trường trong scene sai | Snapshot trước/sau request lỗi |
-| Mô phỏng | Reset cùng seed sinh chuỗi giống nhau | So sánh dataset hash hoặc mẫu |
-| Preference | Tỷ lệ dùng đúng preference theo context và intent | Kịch bản lưu, áp dụng, correction, expiry |
-| ASR | WER/CER trên bộ câu lệnh tiếng Việt | Transcript so với ground truth |
-| Độ trễ | ASR, LLM, tool loop, TTS và tổng thời gian | Timestamp trong trace |
-| Giao diện | Không overflow; usable trên desktop/tablet/mobile | Browser smoke và kiểm tra thủ công |
-| Khả năng phục hồi | Text vẫn dùng được khi mic/TTS/WebGL lỗi | Test failure paths |
-
-## 15. Công nghệ sử dụng
-
-| Thành phần | Công nghệ |
+| Module | Trách nhiệm |
 | --- | --- |
-| Frontend | Next.js 16, React 19, TypeScript |
-| 3D | Three.js, React Three Fiber, Drei |
-| Backend | Python 3.11, FastAPI, Pydantic |
-| Realtime | Server-Sent Events |
-| Database | SQLite |
-| LLM | OpenAI-compatible Responses API, structured function tools |
-| ASR | faster-whisper `large-v3-turbo` |
-| TTS | VietNormalizer, từ điển app, Supertonic 3 |
-| Dataset | Python, CSV, JSON |
-| Kiểm thử | Pytest, Ruff, TypeScript check, smoke scripts |
-| Triển khai | Netlify cho frontend; backend persistent triển khai riêng |
+| `main.py` | FastAPI lifecycle, routes, CORS, error mapping, SSE |
+| `models.py` | Pydantic contracts và domain invariants |
+| `simulation.py` | Clock, baseline, context inference, scenario và device effects |
+| `commands.py` | Device normalization, validation và scene application |
+| `assistant.py` | Responses tool loop, trace và pending scene |
+| `storage.py` | SQLite schema, history, conversation và preference lifecycle |
+| `state.py` | Ordered in-process event broker |
+| `asr.py` | Lazy faster-whisper inference |
+| `tts.py` | Text preparation, VieNeu primary, Supertonic fallback |
+| `tts_lexicon.py` | Cách đọc thuật ngữ và đơn vị chuyên ngành |
 
-## 16. Kết quả hiện tại
+### 9.3. Frontend modules
 
-- Phase 0–6 đã hoàn thành: cấu trúc, runtime, simulation, storage, 3D, dashboard, LLM tools, voice, preference và history.
-- Phase 7 đang hoàn thiện kiểm thử tích hợp, hiệu năng và failure paths.
-- Backend test, TypeScript check và production build đã có trong quy trình `make check`.
-- Frontend đã triển khai trên Netlify; chức năng realtime cần URL backend công khai.
-- Toàn bộ thay đổi thiết bị chỉ ảnh hưởng mô phỏng Python.
+| Module | Trách nhiệm |
+| --- | --- |
+| `apartment-canvas.tsx` | Floor plan, walls, openings, furniture, resident và sensor/device overlay |
+| `assistant-panel.tsx` | Input, trace, voice state và final response |
+| `use-flatmate.ts` | Fetch state, SSE reconnect, scenario và command orchestration |
+| `use-browser-voice.ts` | MediaRecorder, ASR upload, TTS playback và wake mode |
+| `history-chart.tsx` | Biểu đồ 24 giờ và hover detail |
+| `device-controls.tsx` | Manual device command |
 
-## 17. Hạn chế và hướng phát triển
+### 9.4. API surface
 
-1. Thay simulation adapters bằng MQTT/device adapters để kết nối phần cứng thật.
-2. Thêm bộ học hành vi thụ động từ action logs với ngưỡng bằng chứng rõ ràng.
-3. Xây dựng bộ dataset câu lệnh tiếng Việt có nhãn để đo intent accuracy và WER.
-4. Thêm kiểm thử browser end-to-end cho microphone, SSE reconnect và WebGL fallback.
-5. Đóng gói backend bằng container và triển khai trên dịch vụ có persistent volume.
-6. Thêm nhiều phòng và nhiều người dùng sau khi mô hình một căn hộ ổn định.
+API gồm health/state, simulation, scenario, device command, assistant, ASR/TTS, conversation, preference, history và SSE. Unknown fields bị từ chối; audio payload giới hạn 15 MB; history bị clamp ở 24 giờ mới nhất.
 
-## 18. Kết luận
+## 10. Demonstration, logs và numerical results
 
-FlatMate Comfort chứng minh một hướng tiếp cận AIoT trong đó LLM hoạt động như lớp chuyển đổi giữa ngôn ngữ tự nhiên và cấu hình thiết bị. Dữ liệu cảm biến cung cấp ngữ cảnh, preference tạo tính cá nhân hóa, guardrail giữ miền điều khiển hợp lệ, còn digital twin giúp quan sát kết quả. Việc mô phỏng toàn bộ thiết bị bằng Python giảm chi phí phần cứng nhưng vẫn giữ được chu trình cốt lõi của một hệ thống IoT hoàn chỉnh.
+### 10.1. Dataset và scenario
 
+- `sensor_history.csv`: 1.440 hàng, 19 cột, một mẫu mỗi phút trong 24 giờ.
+- `device_history.csv`: 19 trạng thái thiết bị tại baseline snapshot.
+- 10 scenario: `working`, `relaxing`, `sleeping`, `reading_in_bed`, `hot_room`, `stuffy_air`, `polluted_air`, `strong_sunlight`, `quiet_comfort`, `empty_room`.
+
+### 10.2. Demo end-to-end: `hot_room`
+
+**Yêu cầu:** “Phòng rất nóng, hãy làm mát vừa phải.”
+
+| Trường | Trước | Sau |
+| --- | ---: | ---: |
+| Temperature | 33,0°C | 33,0°C vì simulation được pause khi đo |
+| Humidity | 78% | 78% |
+| CO₂ | 1.150 ppm | 1.150 ppm |
+| Window | closed | closed |
+| AC power | off | on |
+| AC target | 27°C | 25°C |
+| Fan | off, level 0 | on, level 1 |
+
+Assistant tạo 18 trace events. Ba lần model request mất lần lượt 8.058 ms, 13.251 ms và 9.601 ms; tổng model latency là 30.910 ms. Conversation hoàn tất trong khoảng 31,0 giây. `set_room_scene` dùng `change_mode="bounded"`, vì vậy target AC giảm đúng 2°C và fan tăng một mức. Không preference nào được áp dụng vì hai preference tìm thấy chỉ liên quan đến lighting khi làm việc.
+
+Final response:
+
+> Đã bật AC 25°C và quạt mức 1. Cửa sổ giữ đóng. Phòng 33°C, nóng.
+
+Kết quả trên là một lần đo functional, không đại diện cho phân bố latency tổng quát của model hoặc network.
+
+### 10.3. TTS benchmark
+
+Câu kiểm tra:
+
+> Điều hòa đặt 25 độ. Cửa sổ vẫn đóng.
+
+| Lượt | Wall time | Audio duration | ASR round-trip |
+| ---: | ---: | ---: | --- |
+| 1 | 2,33 s | 2,80 s | Điều hòa đặt 25 độ, cửa sổ vẫn đóng. |
+| 2 | 3,57 s | 2,80 s | Điều hòa đặt 25 độ, cửa sổ vẫn đóng. |
+| 3 | 3,06 s | 2,80 s | Điều hòa đặt 25 độ, cửa sổ vẫn đóng. |
+
+Trung bình wall time là 2,99 giây; real-time factor xấp xỉ `1,07`. Live endpoint trả WAV mono PCM 16-bit, 48 kHz, 268.844 byte và header:
+
+```text
+X-Audio-Duration: 2.800
+X-TTS-Engine: vieneu-v3-turbo-onnx-int8
+X-TTS-Voice: Mai Anh
+```
+
+### 10.4. Kiểm thử
+
+| Kiểm tra | Kết quả |
+| --- | --- |
+| Pytest | 43 passed, 1 skipped, 3,66 s |
+| Ruff | All checks passed |
+| Frontend domain checks | geometry, voice, trace, privacy, accessibility passed |
+| TypeScript | `tsc --noEmit` passed |
+| Next.js production build | compiled và prerendered thành công |
+| Draw.io architecture validation | 0 error; 2 edge-crossing warnings, không có edge đi qua node |
+
+Test bao phủ contract, scenario loading, deterministic reset, history clamp, atomic command, assistant tool loop, preference lifecycle, session isolation, TTS text normalization, fallback và VieNeu initialization failure cache.
+
+## 11. Đánh giá
+
+### 11.1. Mức đáp ứng yêu cầu môn học
+
+| Yêu cầu trong project instruction | Deliverable |
+| --- | --- |
+| Introduction | Mục 1 |
+| Description of topics | Mục 2–8 |
+| Code analysis/Demonstration | Mục 9–10 |
+| Related work | Mục 3 |
+| Demo logs/scenarios/results | Mục 10 |
+| Numerical data | Mục 10.1–10.4 |
+| References | Mục 14 |
+| Technical Report Word | `deliverables/FlatMate-Comfort-NT532-Technical-Report.docx` |
+
+### 11.2. Điểm mạnh
+
+- Domain model có kiểu dữ liệu và invariants rõ ràng.
+- Simulation và dataset tái lập được bằng seed.
+- LLM chỉ đề xuất action; backend giữ quyền validation và mutation.
+- Memory record giải thích được, có evidence và expiry.
+- Speech pipeline Việt ngữ chạy offline sau bước tải model.
+- Digital twin thể hiện đồng thời không gian, người dùng, sensor và device state.
+
+### 11.3. Hạn chế
+
+- Chưa có thiết bị thật hoặc MQTT adapter.
+- Kết quả assistant phụ thuộc model và network bên ngoài.
+- Chưa có labeled Vietnamese command corpus để đo intent accuracy, WER và CER.
+- TTS benchmark mới có câu ngắn; chưa đánh giá MOS, long-form stability và nhiều speaker.
+- Preference retrieval chưa dùng semantic search hoặc conflict resolution theo từng field.
+- Digital twin dựa trên raster floor plan có dimension conflict và không đạt construction-grade.
+- Chưa có browser E2E automation cho microphone permission và WebGL recovery.
+
+## 12. Triển khai và vận hành
+
+### 12.1. Khởi động local
+
+```bash
+cp .env.example .env
+make install
+make dev
+```
+
+Service mặc định:
+
+- Web: `http://localhost:3000`
+- API: `http://localhost:8000`
+- OpenAPI: `http://localhost:8000/docs`
+
+Kiểm tra:
+
+```bash
+make check
+make smoke
+```
+
+### 12.2. Cấu hình speech mặc định
+
+```text
+ASR_MODEL=small
+ASR_DEVICE=cpu
+ASR_COMPUTE_TYPE=int8
+ASR_BEAM_SIZE=2
+
+TTS_ENGINE=vieneu
+VIENEU_VOICE=Mai Anh
+SUPERTONIC_VOICE=F4
+SUPERTONIC_STEPS=12
+SUPERTONIC_SPEED=1.0
+```
+
+### 12.3. Triển khai tách frontend/backend
+
+Frontend có thể export và deploy trên Netlify. Backend cần persistent process, writable volume cho SQLite và đủ RAM/disk cho ASR/TTS model cache. `NEXT_PUBLIC_API_URL` phải trỏ đến public FastAPI endpoint. CORS chỉ cho phép configured web origin.
+
+## 13. Hướng phát triển
+
+1. Thêm MQTT/Home Assistant adapter phía sau interface command hiện tại; giữ guardrail trước lớp adapter.
+2. Bổ sung sensor ingestion thật và cơ chế reconciliation giữa reported state với desired state.
+3. Dùng embedding retrieval cho intent gần nghĩa nhưng giữ typed preference trong SQLite.
+4. Thêm preference conflict resolution theo field, temporal decay và summary compaction.
+5. Xây dựng Vietnamese smart-apartment benchmark có ground truth action, WER/CER và latency percentile.
+6. Đánh giá TTS bằng MOS, pronunciation set cho số/đơn vị và long-form repetition tests.
+7. Xuất mô hình digital twin thành GLB/GLTF và duy trì dimension report tự động.
+8. Thêm Playwright E2E cho SSE reconnect, audio permission, WebGL fallback và responsive breakpoints.
+9. Containerize backend và tách model cache, database volume, observability metrics.
+
+## 14. Kết luận
+
+FlatMate Comfort chứng minh một kiến trúc AIoT cá nhân hóa có thể kiểm chứng trong môi trường không có phần cứng thật. Digital twin tạo ngữ cảnh không gian và trạng thái; simulation engine cung cấp sensor data có thể tái lập; LLM chuyển ngôn ngữ tự nhiên thành structured targets; guardrail giữ quyền kiểm soát miền thiết bị; preference store tạo tính cá nhân hóa có evidence; ASR và TTS cung cấp interaction tiếng Việt.
+
+Giá trị chính của đề tài không nằm ở việc để LLM điều khiển trực tiếp thiết bị, mà ở việc phân tách rõ ba trách nhiệm: model hiểu yêu cầu, backend kiểm tra action, simulation/device layer thi hành state transition. Cấu trúc này tạo đường nâng cấp hợp lý từ demo digital twin sang hệ thống có MQTT hoặc Home Assistant adapter mà không phải thay đổi contract và guardrail cốt lõi.
+
+## Tài liệu tham khảo
+
+[1] Thuat NGUYEN-KHANH, *Advanced Internet of Things Technologies — Project Instruction*, Faculty of Computer Networks & Communications, UIT — VNU-HCM. Bản Markdown chuyển đổi tại [`docs/source/NT532-Project-Instruction.md`](docs/source/NT532-Project-Instruction.md).
+
+[2] Home Assistant Core, “Open source home automation that puts local control and privacy first,” GitHub repository and architecture documentation. <https://github.com/home-assistant/core>, <https://developers.home-assistant.io/docs/architecture_index/>. Truy cập 02/08/2026.
+
+[3] Eclipse Foundation, “Eclipse Ditto — digital twins for IoT.” <https://github.com/eclipse-ditto/ditto>, <https://www.eclipse.dev/ditto/>. Truy cập 02/08/2026.
+
+[4] Mem0, “The Memory Layer for Personalized AI.” <https://github.com/mem0ai/mem0>. Truy cập 02/08/2026.
+
+[5] Sebastián Ramírez, “FastAPI Documentation.” <https://fastapi.tiangolo.com/>. Truy cập 02/08/2026.
+
+[6] Pydantic Team, “Pydantic Documentation.” <https://docs.pydantic.dev/>. Truy cập 02/08/2026.
+
+[7] Vercel, “Next.js Documentation.” <https://nextjs.org/docs>. Truy cập 02/08/2026.
+
+[8] Poimandres, “React Three Fiber Documentation.” <https://r3f.docs.pmnd.rs/>. Truy cập 02/08/2026.
+
+[9] SYSTRAN, “faster-whisper: Whisper transcription with CTranslate2.” <https://github.com/SYSTRAN/faster-whisper>. Truy cập 02/08/2026.
+
+[10] Alec Radford et al., “Robust Speech Recognition via Large-Scale Weak Supervision,” arXiv:2212.04356, 2022. <https://arxiv.org/abs/2212.04356>.
+
+[11] Phạm Nguyễn Ngọc Bảo, “VieNeu-TTS.” <https://github.com/pnnbao97/VieNeu-TTS>. Source revision used for review: `4002d8d6749d516b446c012f5e6729b7661529d2`. Truy cập 02/08/2026.
+
+[12] Supertone, “Supertonic — multilingual text-to-speech.” <https://github.com/supertone-inc/supertonic>, <https://github.com/supertone-inc/supertonic-py>. Truy cập 02/08/2026.
+
+[13] Nghime Studio, “VietNormalizer.” <https://github.com/nghimestudio/vietnormalizer>. Truy cập 02/08/2026.
+
+[14] SQLite Consortium, “SQLite Documentation.” <https://www.sqlite.org/docs.html>. Truy cập 02/08/2026.
+
+[15] WHATWG, “Server-sent events,” HTML Living Standard. <https://html.spec.whatwg.org/multipage/server-sent-events.html>. Truy cập 02/08/2026.

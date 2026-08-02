@@ -44,7 +44,7 @@ from app.scenarios import ScenarioRepository
 from app.simulation import SimulationEngine, prepare_baseline_data
 from app.state import EventBroker, SseMessage
 from app.storage import METRICS, Storage
-from app.tts import SupertonicTts
+from app.tts import OfflineTts, SupertonicTts, VieneuTts
 
 APP_VERSION = "0.6.0"
 BANGKOK = ZoneInfo("Asia/Bangkok")
@@ -78,6 +78,11 @@ supertonic_tts = SupertonicTts(
     voice=settings.supertonic_voice,
     steps=settings.supertonic_steps,
     speed=settings.supertonic_speed,
+)
+vieneu_tts = VieneuTts(voice=settings.vieneu_voice)
+offline_tts = OfflineTts(
+    primary=vieneu_tts if settings.tts_engine == "vieneu" else supertonic_tts,
+    fallback=supertonic_tts if settings.tts_engine == "vieneu" else None,
 )
 vietnamese_asr = VietnameseAsr(
     model_name=settings.asr_model,
@@ -202,17 +207,17 @@ async def assistant_request(request: AssistantRequest) -> AssistantAccepted:
 @app.post("/api/tts")
 async def synthesize_speech(request: SpeechRequest) -> Response:
     try:
-        speech = await asyncio.to_thread(supertonic_tts.synthesize, request.text)
+        speech = await asyncio.to_thread(offline_tts.synthesize, request.text)
     except Exception as error:
-        raise HTTPException(status_code=503, detail="Không thể tạo giọng đọc Supertonic.") from error
+        raise HTTPException(status_code=503, detail="Không thể tạo giọng đọc ngoại tuyến.") from error
     return Response(
         content=speech.audio,
         media_type="audio/wav",
         headers={
             "Cache-Control": "no-store",
             "X-Audio-Duration": f"{speech.duration_seconds:.3f}",
-            "X-TTS-Engine": "supertonic-3",
-            "X-TTS-Voice": settings.supertonic_voice,
+            "X-TTS-Engine": speech.engine,
+            "X-TTS-Voice": speech.voice,
         },
     )
 

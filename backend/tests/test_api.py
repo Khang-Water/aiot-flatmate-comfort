@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
 
 from app.asr import Transcription
-from app.main import app, encode_sse, supertonic_tts, vietnamese_asr
+from app.main import app, encode_sse, offline_tts, vietnamese_asr
 from app.tts import SynthesizedSpeech
 
 
@@ -154,18 +154,28 @@ def test_assistant_reports_missing_api_key_when_unconfigured(client: TestClient)
     assert response.json()["error"]["code"] == "openai_not_configured"
 
 
-def test_tts_returns_supertonic_wav_without_loading_model(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_tts_returns_actual_engine_headers_without_loading_model(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
-        supertonic_tts,
+        offline_tts,
         "synthesize",
-        lambda text: SynthesizedSpeech(b"RIFF-test-wave", 1.25, text.lower()),
+        lambda text: SynthesizedSpeech(
+            b"RIFF-test-wave",
+            1.25,
+            text.lower(),
+            "vieneu-v3-turbo-onnx-int8",
+            "Mai Anh",
+        ),
     )
 
     response = client.post("/api/tts", json={"text": "Xin chào"})
 
     assert response.status_code == 200
     assert response.headers["content-type"] == "audio/wav"
-    assert response.headers["x-tts-engine"] == "supertonic-3"
+    assert response.headers["x-tts-engine"] == "vieneu-v3-turbo-onnx-int8"
+    assert response.headers["x-tts-voice"] == "Mai Anh"
     assert response.content.startswith(b"RIFF")
 
 

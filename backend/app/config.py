@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -28,13 +29,15 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-5.6-sol"
     openai_reasoning_effort: str = "low"
     openai_timeout_seconds: float = Field(default=45, gt=0, le=180)
-    supertonic_voice: str = Field(default="F1", pattern=r"^[MF][1-5]$")
-    supertonic_steps: int = Field(default=10, ge=5, le=12)
-    supertonic_speed: float = Field(default=1.15, ge=0.7, le=2.0)
-    asr_model: str = "large-v3-turbo"
+    tts_engine: Literal["vieneu", "supertonic"] = "vieneu"
+    vieneu_voice: str = "Mai Anh"
+    supertonic_voice: str = Field(default="F4", pattern=r"^[MF][1-5]$")
+    supertonic_steps: int = Field(default=12, ge=5, le=12)
+    supertonic_speed: float = Field(default=1.0, ge=0.7, le=2.0)
+    asr_model: str = "small"
     asr_device: str = "cpu"
     asr_compute_type: str = "int8"
-    asr_beam_size: int = Field(default=5, ge=1, le=10)
+    asr_beam_size: int = Field(default=2, ge=1, le=10)
 
 
 @lru_cache

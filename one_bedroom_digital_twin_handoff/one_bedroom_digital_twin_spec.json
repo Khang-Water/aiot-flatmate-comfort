@@ -1,0 +1,226 @@
+{
+  "schema": "ai.digital_twin.floorplan.v1",
+  "schema_version": "1.0.0",
+  "project": {
+    "name": "One-bedroom apartment reconstructed from raster floor plan",
+    "intended_use": "Input specification for an AI/CAD/Blender agent to create a dimensionally constrained 3D digital twin",
+    "source_is_authoritative_for_visual_layout": true,
+    "construction_grade": false
+  },
+  "source": {
+    "image_file": "source_floorplan.png",
+    "original_uploaded_name": "image(106).png",
+    "pixel_size": [678, 768],
+    "sha256": "07832477120912db5f1e39395b751394f4d0737acac56389a3effb5d2ae29765",
+    "orientation": "top-down",
+    "language": "English labels; decimal commas used in dimensions"
+  },
+  "units": {
+    "linear": "meter",
+    "area": "square_meter",
+    "angles": "degree"
+  },
+  "coordinate_system": {
+    "world_origin": "outside corner of the upper-left exterior wall",
+    "x_axis": "right/east in source image",
+    "y_axis": "down/south in source image",
+    "z_axis": "up",
+    "raster_origin": "upper-left image pixel",
+    "raster_to_world_approximation": {
+      "formula": {
+        "x_m": "(x_px - 63) / 80.5",
+        "y_m": "(y_px - 87) / 78.1"
+      },
+      "calibration_anchors": [
+        {"from_px": [63, 87], "to_px": [550, 87], "known_length_m": 6.05, "axis": "x"},
+        {"from_px": [63, 87], "to_px": [605, 87], "known_length_m": 6.73, "axis": "x", "note": "6.73 m is shown as the maximum internal horizontal span; this anchor is approximate at the wall exterior"},
+        {"from_px": [605, 87], "to_px": [605, 697], "known_length_m": 7.81, "axis": "y"}
+      ],
+      "confidence": "medium",
+      "warning": "Annotated clear dimensions and raster wall exteriors use different endpoints. Keep dimension annotations as constraints and use the image for topology."
+    }
+  },
+  "global_constraints": {
+    "annotated_overall_or_major_dimensions_m": {
+      "top_width": 6.05,
+      "maximum_horizontal_span": 6.73,
+      "overall_height": 7.81,
+      "upper_right_recess_clear_height": 1.12,
+      "living_zone_right_clear_height": 3.76,
+      "bedroom_right_clear_height": 2.47,
+      "left_kitchen_clear_height": 3.96,
+      "left_bathroom_clear_height": 1.69,
+      "entry_hall_clear_height": 1.80,
+      "kitchen_clear_width": 2.80,
+      "central_partition_width": 0.32,
+      "living_clear_width": 3.61,
+      "entry_hall_clear_width": 1.49,
+      "bedroom_clear_width": 3.65
+    },
+    "ceiling_height_m": {
+      "value": 2.45,
+      "confidence": "medium-high",
+      "basis": "CH 2.45 m appears in living-room and bedroom labels"
+    },
+    "default_wall_assumptions_m": {
+      "exterior_thickness": 0.20,
+      "interior_thickness": 0.12,
+      "note": "Estimated defaults only. Match the raster wall silhouette and preserve annotated clear dimensions."
+    },
+    "dimension_conflict": {
+      "observed": true,
+      "detail": "Right-side clear segments 1.12 + 3.76 + 2.47 = 7.35 m, while the overall annotation reads 7.81 m. The 0.46 m difference is plausibly wall/partition thickness and endpoint convention.",
+      "resolution_rule": "Use 7.81 m for outside-to-outside envelope; use segment dimensions for clear room spans."
+    }
+  },
+  "footprint": {
+    "outer_outline_px_clockwise": [
+      [63, 87], [550, 87], [550, 193], [605, 193], [605, 496],
+      [583, 496], [583, 697], [177, 697], [177, 542], [63, 542]
+    ],
+    "outer_outline_m_approx_clockwise": [
+      [0.00, 0.00], [6.05, 0.00], [6.05, 1.36], [6.73, 1.36], [6.73, 5.24],
+      [6.46, 5.24], [6.46, 7.81], [1.42, 7.81], [1.42, 5.83], [0.00, 5.83]
+    ],
+    "confidence": "medium",
+    "instruction": "Trace the black exterior-wall silhouette from the source image; use this polygon only as an initialization."
+  },
+  "rooms": [
+    {
+      "id": "kitchen_dining",
+      "label": "KITCHEN",
+      "type": "open_kitchen_dining",
+      "annotated_area_m2": 10.01,
+      "annotated_dimensions_m": {"width": 2.80, "height": 3.96},
+      "zone_px_approx": [[80,109],[291,109],[291,194],[354,194],[354,416],[80,416]],
+      "open_to": ["living_room"],
+      "confidence": "high"
+    },
+    {
+      "id": "living_room",
+      "label": "LIVING ROOM",
+      "type": "living_room",
+      "annotated_area_m2": 14.87,
+      "annotated_dimensions_m": {"width": 3.61, "height": 3.76},
+      "zone_px_approx": [[298,195],[482,195],[482,193],[583,193],[583,495],[298,495]],
+      "open_to": ["kitchen_dining", "corridor"],
+      "confidence": "high"
+    },
+    {
+      "id": "bedroom",
+      "label": "BEDROOM",
+      "type": "bedroom",
+      "annotated_area_m2": 14.87,
+      "annotated_dimensions_m": {"width": 3.65, "height": 2.47},
+      "zone_px_approx": [[299,510],[582,510],[582,689],[299,689]],
+      "confidence": "medium-high",
+      "note": "Area text is small; verify against source during modeling."
+    },
+    {
+      "id": "bathroom",
+      "label": "BATHROOM",
+      "type": "bathroom",
+      "annotated_area_m2": 3.09,
+      "zone_px_approx": [[80,417],[220,417],[220,541],[80,541]],
+      "confidence": "high"
+    },
+    {
+      "id": "corridor",
+      "label": "CORRIDOR",
+      "type": "corridor",
+      "annotated_area_m2": 2.22,
+      "zone_px_approx": [[221,417],[298,417],[298,689],[266,689],[266,542],[221,542]],
+      "confidence": "medium-high"
+    },
+    {
+      "id": "entry_hall",
+      "label": "HALL",
+      "type": "entry_hall",
+      "annotated_area_m2": 2.40,
+      "annotated_dimensions_m": {"width": 1.49, "height": 1.80},
+      "zone_px_approx": [[178,542],[266,542],[266,689],[178,689]],
+      "confidence": "medium-high"
+    },
+    {
+      "id": "closet_balcony",
+      "label": "CLOSET BALCONY",
+      "type": "enclosed_balcony_or_dressing_storage",
+      "annotated_area_m2": 3.90,
+      "annotated_dimensions_m": {"clear_height": 1.12},
+      "zone_px_approx": [[370,109],[529,109],[529,193],[482,193],[482,195],[370,195]],
+      "confidence": "medium",
+      "note": "The unusual printed label may denote a closet/balcony hybrid. Preserve its partitions and glazing from the image."
+    }
+  ],
+  "wall_trace": {
+    "method": "Trace solid black pixels as wall solids, then simplify orthogonally",
+    "major_interior_wall_segments_px": [
+      {"id":"kitchen_bath_horizontal","from":[63,416],"to":[221,416],"estimated_thickness_px":14},
+      {"id":"bath_corridor_vertical","from":[221,416],"to":[221,542],"estimated_thickness_px":14},
+      {"id":"bath_hall_horizontal","from":[63,542],"to":[221,542],"estimated_thickness_px":14},
+      {"id":"hall_west_vertical","from":[177,542],"to":[177,697],"estimated_thickness_px":14},
+      {"id":"corridor_bedroom_vertical","from":[298,493],"to":[298,697],"estimated_thickness_px":14},
+      {"id":"living_bedroom_horizontal","from":[298,497],"to":[583,497],"estimated_thickness_px":14,"openings_px":[[407,455],[496,532]]},
+      {"id":"kitchen_core_vertical","from":[291,86],"to":[291,263],"estimated_thickness_px":13},
+      {"id":"upper_core_horizontal","from":[291,194],"to":[371,194],"estimated_thickness_px":16},
+      {"id":"closet_living_horizontal","from":[482,194],"to":[550,194],"estimated_thickness_px":15}
+    ],
+    "confidence": "medium",
+    "warning": "Door/opening intervals are approximate raster coordinates and must be checked visually."
+  },
+  "openings": [
+    {"id":"entry_door","type":"hinged_door","wall":"south_entry_hall","opening_px_approx":[203,266],"width_m_estimate":0.78,"swing":"inward, hinge at right/east","confidence":"medium"},
+    {"id":"bathroom_door","type":"hinged_door","wall":"bath_corridor_vertical","opening_px_approx":[447,496],"width_m_estimate":0.70,"swing":"into bathroom","confidence":"medium"},
+    {"id":"bedroom_opening","type":"sliding_or_glazed_door","wall":"living_bedroom_horizontal","opening_px_approx":[407,532],"width_m_estimate":1.55,"confidence":"medium"},
+    {"id":"top_window_kitchen","type":"window","wall":"north","span_px_approx":[89,291],"width_m_estimate":2.50,"confidence":"high"},
+    {"id":"top_window_closet_balcony","type":"window","wall":"north","span_px_approx":[354,525],"width_m_estimate":2.12,"confidence":"high"},
+    {"id":"bedroom_right_window","type":"window","wall":"east_bedroom","span_px_approx":[528,624],"width_m_estimate":1.23,"confidence":"high"}
+  ],
+  "furniture_and_fixtures": [
+    {"id":"kitchen_base_run","type":"kitchen_cabinetry","room":"kitchen_dining","bbox_px":[80,270,239,416],"layout":"L-shaped","depth_m_estimate":0.60,"includes":["cooktop/oven","sink","worktop","base cabinets"],"confidence":"high"},
+    {"id":"refrigerator","type":"refrigerator","room":"kitchen_dining","bbox_px":[80,158,128,239],"size_m_estimate":[0.60,0.70,1.90],"confidence":"high"},
+    {"id":"dining_table","type":"round_dining_table","room":"kitchen_dining","bbox_px":[178,181,278,294],"diameter_m_estimate":1.05,"seats":4,"confidence":"high"},
+    {"id":"dining_chairs","type":"dining_chair_set","room":"kitchen_dining","count":4,"confidence":"high"},
+    {"id":"sofa","type":"three_seat_sofa","room":"living_room","bbox_px":[505,281,580,463],"size_m_estimate":[2.25,0.95,0.85],"orientation":"long axis north-south against east wall","confidence":"high"},
+    {"id":"armchair","type":"armchair","room":"living_room","bbox_px":[465,217,539,299],"size_m_estimate":[0.90,0.90,0.85],"rotation_deg_estimate":-35,"confidence":"high"},
+    {"id":"side_chair_or_ottoman","type":"chair_or_ottoman","room":"living_room","bbox_px":[438,255,488,307],"confidence":"medium"},
+    {"id":"coffee_table","type":"round_coffee_table","room":"living_room","bbox_px":[405,338,460,395],"diameter_m_estimate":0.68,"confidence":"high"},
+    {"id":"tv_media_unit","type":"tv_and_media_unit","room":"living_room","bbox_px":[304,209,354,293],"orientation":"against west partition","confidence":"medium-high"},
+    {"id":"bed","type":"double_or_queen_bed","room":"bedroom","bbox_px":[309,541,460,659],"size_m_estimate":[1.80,1.50,0.55],"headboard":"west","confidence":"high"},
+    {"id":"bedside_tables","type":"bedside_table_set","room":"bedroom","count":2,"bbox_px_approx":[300,533,343,681],"confidence":"medium"},
+    {"id":"bedroom_wardrobe","type":"wardrobe","room":"bedroom","bbox_px":[519,643,582,690],"depth_m_estimate":0.60,"confidence":"high"},
+    {"id":"bathtub","type":"bathtub","room":"bathroom","bbox_px":[75,490,165,541],"size_m_estimate":[1.70,0.70,0.55],"confidence":"high"},
+    {"id":"toilet","type":"toilet","room":"bathroom","bbox_px":[84,417,121,470],"confidence":"high"},
+    {"id":"bathroom_vanity","type":"vanity_with_sink","room":"bathroom","bbox_px":[148,419,193,450],"width_m_estimate":0.60,"confidence":"high"},
+    {"id":"entry_storage","type":"shoe_cabinet_or_bench","room":"entry_hall","bbox_px":[195,574,257,676],"confidence":"medium"},
+    {"id":"closet_storage","type":"built_in_storage","room":"closet_balcony","bbox_px":[482,109,529,181],"depth_m_estimate":0.60,"confidence":"medium-high"},
+    {"id":"closet_chair","type":"chair","room":"closet_balcony","bbox_px":[468,122,508,166],"confidence":"medium"}
+  ],
+  "materials_inferred": {
+    "flooring": {"type":"light wood plank","direction":"north-south","confidence":"high"},
+    "walls": {"type":"painted interior wall","color":"off-white","confidence":"low"},
+    "window_frames": {"color":"white or light gray","confidence":"low"},
+    "instruction": "Material colors other than the visible wood floor are placeholders and should remain editable."
+  },
+  "downstream_agent_instructions": [
+    "Load source_floorplan.png as a top orthographic reference plane at z=0.",
+    "Set the maximum exterior envelope to approximately 6.73 m by 7.81 m and calibrate using the listed anchors.",
+    "Trace solid black wall regions, force all walls to horizontal or vertical, and extrude to 2.45 m unless better source evidence exists.",
+    "Preserve annotated clear dimensions before estimated wall thicknesses.",
+    "Cut windows and doors using the source image; treat opening coordinates and sizes as initial estimates.",
+    "Place furniture from the bounding boxes and estimated dimensions; substitute parametric proxy models if exact products are unknown.",
+    "Keep every low- or medium-confidence item editable and report any constraint conflict rather than silently distorting the plan.",
+    "Export the final model as GLB/GLTF plus an editable native file, with objects grouped by room and named by the IDs in this specification."
+  ],
+  "quality_gate": {
+    "required_checks": [
+      "Exterior envelope matches the raster silhouette",
+      "Room adjacency matches source",
+      "No door swing collides with fixed fixtures",
+      "Clear dimensions remain within 0.05 m of annotated values where endpoints are unambiguous",
+      "Furniture does not intersect walls",
+      "Model scale is verified with the 6.05 m top-width dimension"
+    ],
+    "recommended_outputs": ["digital_twin.glb","digital_twin.blend_or_equivalent","dimension_report.json","top_view_validation.png"]
+  }
+}

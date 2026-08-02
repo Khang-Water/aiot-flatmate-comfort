@@ -222,13 +222,14 @@ Mục tiêu:
 - Dùng get_recent_actions khi yêu cầu nhắc đến thay đổi trước đó.
 - Nếu hệ thống báo có bộ nhớ sở thích, luôn gọi get_relevant_preferences với context bạn hiểu
   từ toàn bộ câu trước khi gọi set_room_scene.
-- Thứ tự ưu tiên preference: explicit, temporary, rồi learned.
+- Thứ tự ưu tiên preference: explicit, temporary, user_correction, rồi learned.
 - Nếu nhiều preference cùng source và scope phù hợp, dùng bản updated_at mới nhất.
 - Chỉ áp dụng preference khi requested_intent phù hợp yêu cầu hiện tại; không áp dụng chỉ vì cùng context.
 - Khi dùng preference, truyền id của nó vào applied_preference_id trong set_room_scene; nếu không dùng thì null.
 - Chỉ gọi save_preference khi người dùng yêu cầu ghi nhớ rõ ràng. temporary phải có duration_hours.
 - Khi người dùng sửa kết quả trước đó, gọi record_preference_correction với intent chuẩn hóa ổn định và target mới.
 - Khi correction thể hiện sở thích hữu ích, lưu và cho phép áp dụng ngay; không yêu cầu xác nhận riêng.
+- Lịch sử hội thoại chỉ dùng để hiểu tham chiếu và ngữ cảnh hiện tại; không lặp lại lệnh cũ.
 - Không thay đổi thiết bị không liên quan; dùng null cho trường giữ nguyên.
 - Nếu yêu cầu chưa đủ rõ để xác định thiết bị hoặc trạng thái, hỏi lại và không gọi set_room_scene.
 - Tự phân loại ý định từ toàn bộ câu và dữ liệu sensor; không dựa vào danh sách từ khóa từ backend.
@@ -393,17 +394,28 @@ class AssistantOrchestrator:
                 data={"available": has_active_preferences},
             )
 
-            input_items: list[Any] = [
+            # ponytail: six completed turns bound context growth;
+            # add summary compaction when sessions become long-lived.
+            previous_turns = self.storage.recent_session_conversations(request.session_id, limit=6)
+            input_items: list[Any] = []
+            for turn in previous_turns:
+                input_items.extend(
+                    [
+                        {"role": "user", "content": turn.user_text},
+                        {"role": "assistant", "content": turn.assistant_text},
+                    ]
+                )
+            input_items.append(
                 {
                     "role": "user",
                     "content": (
-                        f"Yêu cầu: {request.text}\n"
+                        f"Yêu cầu hiện tại: {request.text}\n"
                         f"Hiện diện vật lý: {snapshot.occupancy.model_dump_json()}\n"
                         f"Thời gian mô phỏng: {snapshot.timestamp.isoformat()}\n"
                         f"Bộ nhớ sở thích khả dụng: {'có' if has_active_preferences else 'không'}"
                     ),
                 }
-            ]
+            )
             pending_scene: RoomSceneTargets | None = None
             applied_preference_id: str | None = None
 

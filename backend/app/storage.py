@@ -128,6 +128,8 @@ class Storage:
                     created_at TEXT NOT NULL,
                     completed_at TEXT
                 );
+                CREATE INDEX IF NOT EXISTS idx_conversations_session_created
+                    ON conversations(session_id, created_at);
                 CREATE TABLE IF NOT EXISTS assistant_trace_events (
                     id TEXT PRIMARY KEY,
                     request_id TEXT NOT NULL,
@@ -358,6 +360,38 @@ class Storage:
             for row in rows
         ]
 
+    def recent_session_conversations(
+        self,
+        session_id: str,
+        limit: int = 6,
+    ) -> list[ConversationRecord]:
+        with self.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT request_id, session_id, source, user_text, assistant_text,
+                       status, error_message, created_at, completed_at
+                FROM conversations
+                WHERE session_id = ? AND status = 'completed' AND assistant_text != ''
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (session_id, limit),
+            ).fetchall()
+        return [
+            ConversationRecord(
+                request_id=row["request_id"],
+                session_id=row["session_id"],
+                source=row["source"],
+                user_text=row["user_text"],
+                assistant_text=row["assistant_text"],
+                status=row["status"],
+                error_message=row["error_message"],
+                created_at=datetime.fromisoformat(row["created_at"]),
+                completed_at=datetime.fromisoformat(row["completed_at"]) if row["completed_at"] else None,
+            )
+            for row in reversed(rows)
+        ]
+
     def create_preference(self, preference: PreferenceCreate, now: datetime) -> PreferenceRecord:
         preference_id = str(uuid4())
         with self.connect() as connection:
@@ -407,7 +441,12 @@ class Storage:
                 WHERE confirmed = 1
                   AND (expires_at IS NULL OR expires_at > ?)
                 ORDER BY
-                    CASE source WHEN 'explicit' THEN 0 WHEN 'temporary' THEN 1 ELSE 2 END,
+                    CASE source
+                        WHEN 'explicit' THEN 0
+                        WHEN 'temporary' THEN 1
+                        WHEN 'user_correction' THEN 2
+                        ELSE 3
+                    END,
                     updated_at DESC
                 LIMIT ?
                 """,
@@ -429,7 +468,12 @@ class Storage:
                   AND confirmed = 1
                   AND (expires_at IS NULL OR expires_at > ?)
                 ORDER BY
-                    CASE source WHEN 'explicit' THEN 0 WHEN 'temporary' THEN 1 ELSE 2 END,
+                    CASE source
+                        WHEN 'explicit' THEN 0
+                        WHEN 'temporary' THEN 1
+                        WHEN 'user_correction' THEN 2
+                        ELSE 3
+                    END,
                     CASE WHEN context = ? THEN 0 ELSE 1 END,
                     updated_at DESC
                 LIMIT ?
@@ -534,15 +578,15 @@ class Storage:
                     """,
                     (
                         preference_id, context, requested_intent,
-                        preferred_result.model_dump_json(exclude_none=True), "learned",
-                        0.65, observation_count, now.isoformat(), now.isoformat(),
+                        preferred_result.model_dump_json(exclude_none=True), "user_correction",
+                        0.85, observation_count, now.isoformat(), now.isoformat(),
                     ),
                 )
             else:
                 preference_id = row["id"]
                 observation_count = int(row["observation_count"]) + 1
-                source = "learned"
-                confidence = min(0.95, 0.5 + observation_count * 0.15)
+                source = "user_correction"
+                confidence = min(0.98, 0.8 + observation_count * 0.05)
                 connection.execute(
                     """
                     UPDATE preferences

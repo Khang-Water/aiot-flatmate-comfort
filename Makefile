@@ -17,7 +17,7 @@ smoke:
 	npm --prefix frontend run smoke
 
 api:
-	cd backend && uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+	cd backend && uv run uvicorn app.main:app --reload --timeout-graceful-shutdown 2 --host 127.0.0.1 --port 8000
 
 web:
 	npm --prefix frontend run dev

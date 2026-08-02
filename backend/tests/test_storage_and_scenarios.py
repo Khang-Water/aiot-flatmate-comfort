@@ -71,15 +71,54 @@ def test_preference_lifecycle_and_scoped_learned_reset(tmp_path: Path) -> None:
     )
 
     assert explicit.confirmed is True
-    assert correction.source == "learned"
+    assert correction.source == "user_correction"
+    assert correction.confidence == 0.85
     assert correction.confirmed is True
-    assert learned.source == "learned"
+    assert learned.source == "user_correction"
     assert learned.confirmed is True
     assert learned.observation_count == 2
     relevant_ids = {item.id for item in storage.relevant_preferences("working", now + timedelta(minutes=7))}
     assert relevant_ids == {explicit.id, learned.id}
     assert storage.reset_learned_preferences() == 1
     assert [item.id for item in storage.preferences()] == [explicit.id]
+
+
+def test_recent_session_conversations_are_scoped_bounded_and_chronological(tmp_path: Path) -> None:
+    storage = Storage(tmp_path / "conversation-history.db")
+    storage.initialize()
+    now = datetime.now(UTC)
+    for index in range(8):
+        request_id = f"same-{index}"
+        created_at = now + timedelta(minutes=index)
+        storage.start_conversation(request_id, "same", "text", f"user {index}", created_at)
+        storage.finish_conversation(
+            request_id,
+            status="completed",
+            assistant_text=f"assistant {index}",
+            error_message="",
+            completed_at=created_at + timedelta(seconds=1),
+        )
+    storage.start_conversation("other", "other", "text", "private", now + timedelta(minutes=9))
+    storage.finish_conversation(
+        "other",
+        status="completed",
+        assistant_text="must not leak",
+        error_message="",
+        completed_at=now + timedelta(minutes=9, seconds=1),
+    )
+    storage.start_conversation("failed", "same", "text", "failed", now + timedelta(minutes=10))
+    storage.finish_conversation(
+        "failed",
+        status="failed",
+        assistant_text="error",
+        error_message="failed",
+        completed_at=now + timedelta(minutes=10, seconds=1),
+    )
+
+    history = storage.recent_session_conversations("same")
+
+    assert [turn.user_text for turn in history] == [f"user {index}" for index in range(2, 8)]
+    assert all(turn.session_id == "same" and turn.status == "completed" for turn in history)
 
 
 def test_newest_explicit_preference_is_returned_first(tmp_path: Path) -> None:

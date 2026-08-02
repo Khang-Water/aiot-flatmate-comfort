@@ -6,7 +6,8 @@ from faster_whisper import WhisperModel
 
 SMART_HOME_VOCABULARY = (
     "điều hòa, đèn chính, đèn đầu giường, quạt, máy lọc không khí, cửa sổ, "
-    "rèm cửa, máy tính, màn hình, ổ cắm, nhiệt độ, độ ẩm, CO2, PM2.5"
+    "rèm cửa, máy hút ẩm, máy tính, màn hình, TV, ổ cắm, cảm biến cửa, "
+    "cảm biến chuyển động, nhiệt độ, độ ẩm, CO2, PM2.5"
 )
 
 
@@ -41,15 +42,19 @@ class VietnameseAsr:
                 BytesIO(audio),
                 language="vi",
                 beam_size=self.beam_size,
+                best_of=self.beam_size,
+                temperature=0,
+                without_timestamps=True,
                 vad_filter=True,
                 vad_parameters={
-                    "min_silence_duration_ms": 500,
-                    "speech_pad_ms": 250,
+                    "min_speech_duration_ms": 150,
+                    "min_silence_duration_ms": 300,
+                    "speech_pad_ms": 120,
                 },
                 condition_on_previous_text=False,
                 initial_prompt=(
                     "Đây là lệnh tiếng Việt điều khiển căn hộ thông minh FlatMate. "
-                    "Hãy chép chính xác tên thiết bị, số, đơn vị và trạng thái bật tắt."
+                    "Hãy chép chính xác tên thiết bị, số, đơn vị, phần trăm và trạng thái bật tắt."
                 ),
                 hotwords=SMART_HOME_VOCABULARY,
             )

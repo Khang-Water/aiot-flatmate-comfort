@@ -1,6 +1,6 @@
 # Backend
 
-Python 3.11 FastAPI simulation, assistant, and local Vietnamese speech service. Phase 5 adds faster-whisper ASR, VietNormalizer text normalization, and Supertonic 3 WAV synthesis.
+Python 3.11 FastAPI simulation, assistant, and offline Vietnamese speech service. Speech uses faster-whisper ASR, VietNormalizer text normalization, VieNeu v3 Turbo ONNX synthesis, and Supertonic fallback.
 
 Current modules:
 
@@ -15,12 +15,12 @@ app/
 ├── simulation.py        clock, drift, context, scenarios
 ├── scenarios.py         JSON scenario repository
 ├── commands.py          atomic device validation
-├── tts.py               VietNormalizer + lazy local Supertonic synthesis
+├── tts.py               normalized VieNeu synthesis + Supertonic fallback
 └── storage.py           SQLite history and CSV export
 ```
 
 Run from repository root with `make api`. Add `OPENAI_API_KEY` to root `.env` to enable assistant requests.
 
-First `POST /api/asr` downloads faster-whisper `small` to the local cache. Defaults: CPU, `int8`, beam size 5; override with `ASR_MODEL`, `ASR_DEVICE`, `ASR_COMPUTE_TYPE`, and `ASR_BEAM_SIZE`.
+First `POST /api/asr` downloads faster-whisper `small` to the local cache. Defaults: CPU, `int8`, beam size 2; override with `ASR_MODEL`, `ASR_DEVICE`, `ASR_COMPUTE_TYPE`, and `ASR_BEAM_SIZE`.
 
-First `POST /api/tts` downloads about 400 MB of Supertonic assets to the local cache. Defaults: voice `F1`, 10 inference steps, speed `1.15`; override with `SUPERTONIC_VOICE`, `SUPERTONIC_STEPS`, and `SUPERTONIC_SPEED`.
+First `POST /api/tts` downloads VieNeu v3 Turbo model assets. Default engine is ONNX `int8` on CPU with voice `Mai Anh`; set `TTS_ENGINE=supertonic` to disable VieNeu. Supertonic remains automatic fallback and uses `SUPERTONIC_VOICE`, `SUPERTONIC_STEPS`, and `SUPERTONIC_SPEED`.

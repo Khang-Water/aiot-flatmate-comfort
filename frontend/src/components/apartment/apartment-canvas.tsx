@@ -1,6 +1,6 @@
 "use client";
 
-import { ContactShadows, Grid, Html, OrbitControls, RoundedBox } from "@react-three/drei";
+import { ContactShadows, Html, OrbitControls, RoundedBox } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Component, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
@@ -17,6 +17,38 @@ interface ApartmentCanvasProps {
   reducedMotion: boolean;
 }
 
+const PLAN_WIDTH_M = 6.73;
+const PLAN_DEPTH_M = 7.81;
+const CEILING_HEIGHT_M = 2.45;
+const DOOR_HEIGHT_M = 2.1;
+const PLAN_CENTER_X = PLAN_WIDTH_M / 2;
+const PLAN_CENTER_Z = PLAN_DEPTH_M / 2;
+
+const outline = [
+  [0, 0], [6.05, 0], [6.05, 1.36], [6.73, 1.36], [6.73, 5.24],
+  [6.46, 5.24], [6.46, 7.81], [1.42, 7.81], [1.42, 5.83], [0, 5.83],
+] as const;
+
+function worldX(planX: number) {
+  return planX - PLAN_CENTER_X;
+}
+
+function worldZ(planY: number) {
+  return planY - PLAN_CENTER_Z;
+}
+
+function planPosition(planX: number, planY: number, elevation = 0): [number, number, number] {
+  return [worldX(planX), elevation, worldZ(planY)];
+}
+
+const residentPlacements: Record<RoomSnapshot["inferred_context"], { labelHeight: number; position: [number, number, number]; rotation: number }> = {
+  working: { labelHeight: 1.55, position: planPosition(2.05, 2.42), rotation: Math.PI },
+  relaxing: { labelHeight: 1.7, position: planPosition(5.96, 3.65), rotation: -Math.PI / 2 },
+  sleeping: { labelHeight: 0.55, position: planPosition(3.99, 6.56, 0.63), rotation: Math.PI / 2 },
+  reading_in_bed: { labelHeight: 1.45, position: planPosition(3.8, 6.56, 0.63), rotation: Math.PI / 2 },
+  away: { labelHeight: 0, position: [0, -4, 0], rotation: 0 },
+};
+
 class WebglErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
 
@@ -29,7 +61,7 @@ class WebglErrorBoundary extends Component<{ children: ReactNode }, { failed: bo
       return (
         <div className="webgl-fallback" role="alert">
           <strong>Không dựng được căn hộ 3D.</strong>
-          <span>Bảng trạng thái bên dưới vẫn dùng được. Có thể tải lại trang để thử khởi tạo WebGL lần nữa.</span>
+          <span>Bảng trạng thái bên dưới vẫn dùng được. Có thể tải lại trang để thử WebGL lần nữa.</span>
           <button onClick={() => window.location.reload()} type="button">Tải lại mô hình</button>
         </div>
       );
@@ -38,21 +70,7 @@ class WebglErrorBoundary extends Component<{ children: ReactNode }, { failed: bo
   }
 }
 
-const residentPositions: Record<RoomSnapshot["inferred_context"], [number, number, number]> = {
-  working: [0.1, 0.58, -2.05],
-  relaxing: [-0.35, 0.64, 1.85],
-  sleeping: [-3.15, 0.84, -1.8],
-  reading_in_bed: [-3.15, 0.88, -1.75],
-  away: [0, -3, 0],
-};
-
-function kelvinColor(kelvin: number): string {
-  if (kelvin < 3300) return "#ffd0a3";
-  if (kelvin < 4600) return "#fff1d2";
-  return "#dcecff";
-}
-
-function createSurfaceTexture(kind: "wood" | "stone" | "tile") {
+function createFloorTexture(kind: "wood" | "tile") {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
   canvas.height = 512;
@@ -60,35 +78,27 @@ function createSurfaceTexture(kind: "wood" | "stone" | "tile") {
   if (!context) return new THREE.CanvasTexture(canvas);
 
   if (kind === "wood") {
-    context.fillStyle = "#cdbb9f";
+    context.fillStyle = "#c9b08e";
     context.fillRect(0, 0, 512, 512);
-    for (let row = 0; row < 8; row += 1) {
-      const y = row * 64;
-      context.fillStyle = row % 2 ? "rgba(96, 69, 43, 0.035)" : "rgba(255, 250, 235, 0.045)";
-      context.fillRect(0, y, 512, 64);
-      context.strokeStyle = "rgba(82, 59, 38, 0.18)";
+    for (let plank = 0; plank < 10; plank += 1) {
+      const x = plank * 51.2;
+      context.fillStyle = plank % 2 ? "rgba(100, 67, 38, 0.032)" : "rgba(255, 248, 230, 0.04)";
+      context.fillRect(x, 0, 51.2, 512);
+      context.strokeStyle = "rgba(80, 55, 35, 0.18)";
       context.beginPath();
-      context.moveTo(0, y + 0.5);
-      context.lineTo(512, y + 0.5);
+      context.moveTo(x, 0);
+      context.lineTo(x, 512);
       context.stroke();
-      const seam = (row * 137) % 512;
+      const seam = (plank * 137) % 512;
       context.beginPath();
-      context.moveTo(seam, y);
-      context.lineTo(seam, y + 64);
+      context.moveTo(x, seam);
+      context.lineTo(x + 51.2, seam);
       context.stroke();
-      for (let grain = 0; grain < 5; grain += 1) {
-        context.strokeStyle = "rgba(83, 57, 34, 0.045)";
-        context.beginPath();
-        const grainY = y + 9 + grain * 11;
-        context.moveTo(0, grainY);
-        context.bezierCurveTo(140, grainY + 4, 340, grainY - 5, 512, grainY + 2);
-        context.stroke();
-      }
     }
-  } else if (kind === "tile") {
-    context.fillStyle = "#b7c7c3";
+  } else {
+    context.fillStyle = "#c6cecb";
     context.fillRect(0, 0, 512, 512);
-    context.strokeStyle = "rgba(244, 244, 235, 0.72)";
+    context.strokeStyle = "rgba(250, 248, 241, 0.82)";
     context.lineWidth = 7;
     for (let line = 0; line <= 512; line += 128) {
       context.beginPath();
@@ -98,267 +108,277 @@ function createSurfaceTexture(kind: "wood" | "stone" | "tile") {
       context.lineTo(512, line);
       context.stroke();
     }
-  } else {
-    context.fillStyle = "#b9ad9a";
-    context.fillRect(0, 0, 512, 512);
-    for (let dot = 0; dot < 180; dot += 1) {
-      const x = (dot * 83) % 512;
-      const y = (dot * 197) % 512;
-      const shade = dot % 3 === 0 ? "rgba(70, 79, 75, 0.13)" : "rgba(255, 250, 240, 0.2)";
-      context.fillStyle = shade;
-      context.fillRect(x, y, 2 + (dot % 3), 2 + (dot % 2));
-    }
   }
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
-  texture.anisotropy = 4;
-  texture.repeat.set(kind === "wood" ? 5 : 4, kind === "wood" ? 3.5 : 4);
+  texture.repeat.set(kind === "wood" ? 4.8 : 2.3, kind === "wood" ? 5.5 : 2.3);
   return texture;
 }
 
-function useSurfaceTextures() {
-  const textures = useMemo(() => ({
-    wood: createSurfaceTexture("wood"),
-    stone: createSurfaceTexture("stone"),
-    tile: createSurfaceTexture("tile"),
-  }), []);
-
+function useFloorTextures() {
+  const textures = useMemo(() => ({ wood: createFloorTexture("wood"), tile: createFloorTexture("tile") }), []);
   useEffect(() => () => Object.values(textures).forEach((texture) => texture.dispose()), [textures]);
   return textures;
 }
 
-function Wall({ position, size }: { position: [number, number, number]; size: [number, number, number] }) {
+function FloorOutline() {
+  const textures = useFloorTextures();
+  const shape = useMemo(() => {
+    const result = new THREE.Shape();
+    outline.forEach(([planX, planY], index) => {
+      const x = worldX(planX);
+      const y = -worldZ(planY);
+      if (index === 0) result.moveTo(x, y);
+      else result.lineTo(x, y);
+    });
+    result.closePath();
+    return result;
+  }, []);
+
   return (
-    <mesh castShadow receiveShadow position={position}>
-      <boxGeometry args={size} />
-      <meshStandardMaterial color="#eee9df" roughness={0.92} />
+    <>
+      <mesh receiveShadow position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <shapeGeometry args={[shape]} />
+        <meshStandardMaterial color="#d1bc9d" map={textures.wood} roughness={0.9} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh receiveShadow position={planPosition(0.98, 5.02, 0.012)} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[1.72, 1.42]} />
+        <meshStandardMaterial color="#c8d2cf" map={textures.tile} roughness={0.92} />
+      </mesh>
+    </>
+  );
+}
+
+function WallSegment({
+  base = 0,
+  color = "#ece8df",
+  from,
+  height = CEILING_HEIGHT_M,
+  thickness = 0.12,
+  to,
+}: {
+  base?: number;
+  color?: string;
+  from: [number, number];
+  height?: number;
+  thickness?: number;
+  to: [number, number];
+}) {
+  const startX = worldX(from[0]);
+  const startZ = worldZ(from[1]);
+  const endX = worldX(to[0]);
+  const endZ = worldZ(to[1]);
+  const deltaX = endX - startX;
+  const deltaZ = endZ - startZ;
+  const length = Math.hypot(deltaX, deltaZ);
+  const rotation = -Math.atan2(deltaZ, deltaX);
+
+  return (
+    <mesh
+      castShadow
+      receiveShadow
+      position={[(startX + endX) / 2, base + height / 2, (startZ + endZ) / 2]}
+      rotation={[0, rotation, 0]}
+    >
+      <boxGeometry args={[length, height, thickness]} />
+      <meshStandardMaterial color={color} roughness={0.94} />
     </mesh>
   );
 }
 
-function Trim({ position, size }: { position: [number, number, number]; size: [number, number, number] }) {
+function WindowOpeningX({ x1, x2, planY }: { x1: number; x2: number; planY: number }) {
+  const width = x2 - x1;
+  const centerX = (x1 + x2) / 2;
+  const sill = 0.72;
+  const glassHeight = 1.38;
   return (
-    <mesh castShadow position={position}>
-      <boxGeometry args={size} />
-      <meshStandardMaterial color="#d8d0c2" roughness={0.78} />
-    </mesh>
+    <>
+      <WallSegment from={[x1, planY]} height={sill} thickness={0.2} to={[x2, planY]} />
+      <WallSegment base={sill + glassHeight} from={[x1, planY]} height={CEILING_HEIGHT_M - sill - glassHeight} thickness={0.2} to={[x2, planY]} />
+      <group position={planPosition(centerX, planY + 0.015, sill + glassHeight / 2)}>
+        <mesh><boxGeometry args={[width, glassHeight, 0.035]} /><meshPhysicalMaterial color="#b9dce3" opacity={0.48} roughness={0.08} transparent transmission={0.22} /></mesh>
+        {[-width / 2, 0, width / 2].map((x) => <mesh key={x} position={[x, 0, 0.03]}><boxGeometry args={[0.04, glassHeight + 0.08, 0.06]} /><meshStandardMaterial color="#d9ddd8" metalness={0.24} /></mesh>)}
+      </group>
+    </>
   );
 }
 
-function Door({ position, rotation = 0 }: { position: [number, number, number]; rotation?: number }) {
+function WindowOpeningZ({ planX, y1, y2 }: { planX: number; y1: number; y2: number }) {
+  const depth = y2 - y1;
+  const centerY = (y1 + y2) / 2;
+  const sill = 0.7;
+  const glassHeight = 1.4;
+  return (
+    <>
+      <WallSegment from={[planX, y1]} height={sill} thickness={0.2} to={[planX, y2]} />
+      <WallSegment base={sill + glassHeight} from={[planX, y1]} height={CEILING_HEIGHT_M - sill - glassHeight} thickness={0.2} to={[planX, y2]} />
+      <group position={planPosition(planX - 0.015, centerY, sill + glassHeight / 2)} rotation={[0, Math.PI / 2, 0]}>
+        <mesh><boxGeometry args={[depth, glassHeight, 0.035]} /><meshPhysicalMaterial color="#b9dce3" opacity={0.48} roughness={0.08} transparent transmission={0.22} /></mesh>
+        {[-depth / 2, 0, depth / 2].map((x) => <mesh key={x} position={[x, 0, 0.03]}><boxGeometry args={[0.04, glassHeight + 0.08, 0.06]} /><meshStandardMaterial color="#d9ddd8" metalness={0.24} /></mesh>)}
+      </group>
+    </>
+  );
+}
+
+function DoorLeaf({ planX, planY, rotation, width = 0.78 }: { planX: number; planY: number; rotation: number; width?: number }) {
+  return (
+    <group position={planPosition(planX, planY)} rotation={[0, rotation, 0]}>
+      <mesh castShadow position={[width / 2, DOOR_HEIGHT_M / 2, 0]}><boxGeometry args={[width, DOOR_HEIGHT_M, 0.055]} /><meshStandardMaterial color="#a47d59" roughness={0.78} /></mesh>
+      <mesh position={[width - 0.08, 1.02, 0.045]}><sphereGeometry args={[0.035, 12, 12]} /><meshStandardMaterial color="#b99b68" metalness={0.55} /></mesh>
+    </group>
+  );
+}
+
+function SlidingBedroomDoor() {
+  const width = 1.55;
+  return (
+    <group position={planPosition(5.025, 5.24, DOOR_HEIGHT_M / 2)}>
+      {[-width / 4, width / 4].map((x, index) => (
+        <group key={x} position={[x, 0, index * 0.035]}>
+          <mesh><boxGeometry args={[width / 2 + 0.02, DOOR_HEIGHT_M - 0.08, 0.035]} /><meshPhysicalMaterial color="#c3dcdf" opacity={0.33} roughness={0.12} transparent transmission={0.18} /></mesh>
+          <mesh position={[0, 0, 0.025]}><boxGeometry args={[width / 2 + 0.04, 0.045, 0.055]} /><meshStandardMaterial color="#747d79" metalness={0.35} /></mesh>
+        </group>
+      ))}
+      <mesh position={[0, DOOR_HEIGHT_M / 2, 0]}><boxGeometry args={[width + 0.08, 0.045, 0.08]} /><meshStandardMaterial color="#747d79" /></mesh>
+    </group>
+  );
+}
+
+function ApartmentShell() {
+  return (
+    <>
+      <FloorOutline />
+
+      <WallSegment from={[0, 0]} thickness={0.2} to={[0.25, 0]} />
+      <WindowOpeningX planY={0} x1={0.25} x2={2.75} />
+      <WallSegment from={[2.75, 0]} thickness={0.2} to={[3.55, 0]} />
+      <WindowOpeningX planY={0} x1={3.55} x2={5.67} />
+      <WallSegment from={[5.67, 0]} thickness={0.2} to={[6.05, 0]} />
+      <WallSegment from={[6.05, 0]} thickness={0.2} to={[6.05, 1.36]} />
+      <WallSegment from={[6.05, 1.36]} thickness={0.2} to={[6.73, 1.36]} />
+      <WallSegment from={[6.73, 1.36]} thickness={0.2} to={[6.73, 5.24]} />
+      <WallSegment from={[6.73, 5.24]} thickness={0.2} to={[6.46, 5.24]} />
+      <WallSegment from={[6.46, 5.24]} thickness={0.2} to={[6.46, 5.62]} />
+      <WindowOpeningZ planX={6.46} y1={5.62} y2={6.85} />
+      <WallSegment from={[6.46, 6.85]} thickness={0.2} to={[6.46, 7.81]} />
+      <WallSegment from={[1.42, 7.81]} thickness={0.2} to={[1.74, 7.81]} />
+      <WallSegment base={DOOR_HEIGHT_M} from={[1.74, 7.81]} height={CEILING_HEIGHT_M - DOOR_HEIGHT_M} thickness={0.2} to={[2.52, 7.81]} />
+      <WallSegment from={[2.52, 7.81]} thickness={0.2} to={[6.46, 7.81]} />
+      <DoorLeaf planX={2.52} planY={7.72} rotation={2.36} />
+      <WallSegment from={[1.42, 5.83]} thickness={0.2} to={[1.42, 7.81]} />
+      <WallSegment from={[0, 5.83]} thickness={0.2} to={[1.42, 5.83]} />
+      <WallSegment from={[0, 0]} thickness={0.2} to={[0, 5.83]} />
+
+      <WallSegment from={[0, 4.21]} to={[1.96, 4.21]} />
+      <WallSegment from={[1.96, 4.21]} to={[1.96, 4.61]} />
+      <WallSegment base={DOOR_HEIGHT_M} from={[1.96, 4.61]} height={CEILING_HEIGHT_M - DOOR_HEIGHT_M} to={[1.96, 5.31]} />
+      <WallSegment from={[1.96, 5.31]} to={[1.96, 5.83]} />
+      <DoorLeaf planX={1.93} planY={5.31} rotation={2.45} width={0.7} />
+      <WallSegment from={[1.42, 5.83]} to={[1.96, 5.83]} />
+      <WallSegment from={[2.92, 5.2]} to={[2.92, 7.81]} />
+      <WallSegment from={[2.92, 5.24]} to={[4.25, 5.24]} />
+      <WallSegment base={DOOR_HEIGHT_M} from={[4.25, 5.24]} height={CEILING_HEIGHT_M - DOOR_HEIGHT_M} to={[5.8, 5.24]} />
+      <SlidingBedroomDoor />
+      <WallSegment from={[5.8, 5.24]} to={[6.46, 5.24]} />
+
+      <WallSegment from={[2.83, 0]} to={[2.83, 1.37]} />
+      <WallSegment from={[2.83, 1.37]} to={[2.83, 2.25]} />
+      <WallSegment from={[2.83, 1.37]} to={[3.83, 1.37]} />
+      <WallSegment from={[5.2, 1.37]} to={[6.05, 1.37]} />
+      <WallSegment base={DOOR_HEIGHT_M} from={[3.83, 1.37]} height={CEILING_HEIGHT_M - DOOR_HEIGHT_M} to={[5.2, 1.37]} />
+      <group position={planPosition(4.515, 1.37, DOOR_HEIGHT_M / 2)}>
+        <mesh><boxGeometry args={[1.37, DOOR_HEIGHT_M - 0.06, 0.035]} /><meshPhysicalMaterial color="#d4e1df" opacity={0.27} roughness={0.15} transparent transmission={0.16} /></mesh>
+        <mesh position={[0, -DOOR_HEIGHT_M / 2 + 0.025, 0]}><boxGeometry args={[1.41, 0.05, 0.07]} /><meshStandardMaterial color="#747d79" metalness={0.35} /></mesh>
+      </group>
+
+      <RoomLabel position={planPosition(1.45, 3.45, 0.07)}>KITCHEN</RoomLabel>
+      <RoomLabel position={planPosition(4.62, 4.45, 0.07)}>LIVING ROOM</RoomLabel>
+      <RoomLabel position={planPosition(4.7, 7.2, 0.07)}>BEDROOM</RoomLabel>
+      <RoomLabel position={planPosition(1.0, 5.45, 0.07)}>BATHROOM</RoomLabel>
+      <RoomLabel position={planPosition(2.16, 7.18, 0.07)}>HALL</RoomLabel>
+      <RoomLabel position={planPosition(4.82, 0.82, 0.07)}>CLOSET BALCONY</RoomLabel>
+    </>
+  );
+}
+
+function RoomLabel({ children, position }: { children: ReactNode; position: [number, number, number] }) {
+  return <Html center distanceFactor={10} position={position}><span className="scene-room">{children}</span></Html>;
+}
+
+function Chair({ position, rotation = 0 }: { position: [number, number, number]; rotation?: number }) {
   return (
     <group position={position} rotation={[0, rotation, 0]}>
-      <RoundedBox castShadow args={[0.88, 2.35, 0.08]} radius={0.035} smoothness={3} position={[0.44, 1.175, 0]}>
-        <meshStandardMaterial color="#9b7657" roughness={0.72} />
-      </RoundedBox>
-      {[0.67, 1.68].map((y) => (
-        <mesh key={y} position={[0.44, y, 0.046]}>
-          <boxGeometry args={[0.62, 0.015, 0.012]} />
-          <meshStandardMaterial color="#75543c" />
-        </mesh>
-      ))}
-      <mesh castShadow position={[0.77, 1.14, 0.09]} rotation={[Math.PI / 2, 0, 0]}>
-        <sphereGeometry args={[0.045, 16, 16]} />
-        <meshStandardMaterial color="#a98752" metalness={0.68} roughness={0.28} />
-      </mesh>
+      <RoundedBox args={[0.46, 0.12, 0.46]} castShadow position={[0, 0.48, 0]} radius={0.06} smoothness={3}><meshStandardMaterial color="#879e93" roughness={0.86} /></RoundedBox>
+      <RoundedBox args={[0.46, 0.55, 0.09]} castShadow position={[0, 0.79, 0.2]} radius={0.05} smoothness={3}><meshStandardMaterial color="#718c80" /></RoundedBox>
+      {[-0.18, 0.18].flatMap((x) => [-0.18, 0.18].map((z) => <mesh castShadow key={`${x}-${z}`} position={[x, 0.23, z]}><boxGeometry args={[0.045, 0.46, 0.045]} /><meshStandardMaterial color="#615b52" /></mesh>))}
     </group>
   );
 }
 
-function Plant({ position, scale = 1 }: { position: [number, number, number]; scale?: number }) {
+function Laptop({ active }: { active: boolean }) {
   return (
-    <group position={position} scale={scale}>
-      <mesh castShadow position={[0, 0.2, 0]}>
-        <cylinderGeometry args={[0.18, 0.13, 0.4, 18]} />
-        <meshStandardMaterial color="#a86f4f" roughness={0.92} />
-      </mesh>
-      {[0, 1, 2, 3, 4].map((leaf) => {
-        const angle = leaf * 1.27;
-        return (
-          <mesh castShadow key={leaf} position={[Math.cos(angle) * 0.13, 0.55 + (leaf % 2) * 0.12, Math.sin(angle) * 0.13]} rotation={[0.35, -angle, leaf % 2 ? -0.65 : 0.65]}>
-            <sphereGeometry args={[0.1, 14, 12]} />
-            <meshStandardMaterial color={leaf % 2 ? "#52785d" : "#64896b"} roughness={0.9} />
-          </mesh>
-        );
-      })}
+    <group position={[0, 0, 0]}>
+      <mesh castShadow><boxGeometry args={[0.38, 0.025, 0.27]} /><meshStandardMaterial color="#4d5350" metalness={0.28} /></mesh>
+      <mesh castShadow position={[0, 0.16, -0.13]} rotation={[-0.55, 0, 0]}><boxGeometry args={[0.38, 0.27, 0.025]} /><meshStandardMaterial color="#353c39" emissive={active ? "#74a99c" : "#000000"} emissiveIntensity={active ? 0.7 : 0} /></mesh>
     </group>
   );
 }
 
-function SceneLabel({ children, position, kind = "room" }: {
-  children: ReactNode;
-  position: [number, number, number];
-  kind?: "room" | "device";
-}) {
+function KitchenDining({ computerOn }: { computerOn: boolean }) {
+  const table = planPosition(2.05, 1.93);
   return (
-    <Html center distanceFactor={kind === "room" ? 11 : 8} position={position}>
-      <span className={`scene-${kind}`}>{children}</span>
-    </Html>
-  );
-}
-
-function SensorNode({ label, value, position, color }: {
-  label: string;
-  value: string;
-  position: [number, number, number];
-  color: string;
-}) {
-  return (
-    <group position={position}>
-      <mesh castShadow>
-        <cylinderGeometry args={[0.11, 0.11, 0.055, 24]} />
-        <meshStandardMaterial color="#f5f2ea" metalness={0.08} roughness={0.55} />
-      </mesh>
-      <mesh position={[0, 0.035, 0]}>
-        <cylinderGeometry args={[0.052, 0.052, 0.012, 18]} />
-        <meshBasicMaterial color={color} />
-      </mesh>
-      <Html center distanceFactor={7} position={[0, 0.55, 0]}>
-        <div className="sensor-pin" style={{ "--sensor-color": color } as CSSProperties}>
-          <span>{label}</span>
-          <strong>{value}</strong>
-        </div>
-      </Html>
-    </group>
-  );
-}
-
-function Resident({ snapshot, reducedMotion }: Omit<ApartmentCanvasProps, "overlay">) {
-  const group = useRef<THREE.Group>(null);
-  const target = residentPositions[snapshot.inferred_context];
-  const targetVector = useMemo(() => new THREE.Vector3(...target), [target]);
-  const isSleeping = snapshot.inferred_context === "sleeping";
-  const isReading = snapshot.inferred_context === "reading_in_bed";
-  const isSeated = snapshot.inferred_context === "working" || snapshot.inferred_context === "relaxing";
-  const targetRotation = isSleeping ? Math.PI / 2 : isReading ? Math.PI / 3.25 : 0;
-  const targetYaw = snapshot.inferred_context === "relaxing" ? -Math.PI / 2 : 0;
-
-  useFrame(({ clock }, delta) => {
-    if (!group.current) return;
-    group.current.position.lerp(targetVector, Math.min(1, delta * (reducedMotion ? 20 : 3.5)));
-    group.current.rotation.z = THREE.MathUtils.lerp(
-      group.current.rotation.z,
-      targetRotation,
-      Math.min(1, delta * 4),
-    );
-    group.current.rotation.y = THREE.MathUtils.lerp(
-      group.current.rotation.y,
-      targetYaw,
-      Math.min(1, delta * 4),
-    );
-    if (!reducedMotion && !isSleeping) {
-      group.current.position.y = target[1] + Math.sin(clock.elapsedTime * 2.3) * 0.025;
-    }
-  });
-
-  if (!snapshot.occupancy.room_present) return null;
-
-  return (
-    <group ref={group} position={target}>
-      <mesh castShadow position={[0, 0.65, 0]}>
-        <sphereGeometry args={[0.21, 24, 24]} />
-        <meshStandardMaterial color="#7c4e39" />
-      </mesh>
-      <mesh castShadow position={[-0.03, 0.8, -0.06]} rotation={[0.2, 0, 0]}>
-        <sphereGeometry args={[0.22, 20, 18, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial color="#302d29" roughness={0.95} />
-      </mesh>
-      <mesh castShadow position={[0, 0.17, 0]}>
-        <capsuleGeometry args={[0.23, 0.55, 8, 16]} />
-        <meshStandardMaterial color={isReading ? "#c36b4f" : "#4d7861"} />
-      </mesh>
-      {[-0.13, 0.13].map((x) => (
-        <mesh castShadow key={x} position={[x, isSeated ? -0.3 : -0.43, isSeated ? 0.17 : 0]} rotation={[isSeated ? -0.75 : 0, 0, 0]}>
-          <capsuleGeometry args={[0.075, 0.4, 6, 12]} />
-          <meshStandardMaterial color="#3d4b45" />
-        </mesh>
-      ))}
-      {[-0.27, 0.27].map((x) => (
-        <mesh castShadow key={x} position={[x, 0.2, isReading ? 0.12 : 0]} rotation={[isReading ? -0.8 : 0, 0, x < 0 ? -0.28 : 0.28]}>
-          <capsuleGeometry args={[0.055, 0.38, 6, 12]} />
-          <meshStandardMaterial color="#8b5943" />
-        </mesh>
-      ))}
-      {isReading ? (
-        <group position={[0, 0.03, 0.32]} rotation={[0.05, 0, 0]}>
-          {[-0.13, 0.13].map((x) => (
-            <mesh castShadow key={x} position={[x, 0, 0]} rotation={[0, x < 0 ? 0.18 : -0.18, 0]}>
-              <boxGeometry args={[0.25, 0.025, 0.34]} />
-              <meshStandardMaterial color="#d9c48d" roughness={0.85} />
-            </mesh>
-          ))}
-        </group>
-      ) : null}
-      <Html center distanceFactor={8} position={[0, 1.12, 0]}>
-        <span className="scene-label resident-label">{contextLabels[snapshot.inferred_context]}</span>
-      </Html>
-    </group>
-  );
-}
-
-function Bed() {
-  return (
-    <group position={[-3.2, 0, -1.8]}>
-      <RoundedBox castShadow receiveShadow args={[1.75, 0.28, 2.18]} radius={0.08} smoothness={4} position={[0, 0.25, 0]}>
-        <meshStandardMaterial color="#725744" />
-      </RoundedBox>
-      <RoundedBox castShadow args={[1.62, 0.24, 2.02]} radius={0.12} smoothness={4} position={[0, 0.49, 0]}>
-        <meshStandardMaterial color="#ece7dc" />
-      </RoundedBox>
-      <RoundedBox castShadow args={[1.48, 0.11, 1.3]} radius={0.08} smoothness={4} position={[0, 0.66, 0.24]}>
-        <meshStandardMaterial color="#7d9a8c" roughness={0.95} />
-      </RoundedBox>
-      {[-0.43, 0.43].map((x) => (
-        <RoundedBox castShadow args={[0.62, 0.14, 0.44]} key={x} radius={0.1} smoothness={4} position={[x, 0.7, -0.69]}>
-          <meshStandardMaterial color="#f5efe5" />
-        </RoundedBox>
-      ))}
-      <mesh castShadow position={[0, 0.82, -1.04]}>
-        <boxGeometry args={[1.82, 1.18, 0.12]} />
-        <meshStandardMaterial color="#725744" />
-      </mesh>
-      <group position={[-1.17, 0, -0.78]}>
-        <mesh castShadow position={[0, 0.36, 0]}><boxGeometry args={[0.52, 0.55, 0.48]} /><meshStandardMaterial color="#98755a" /></mesh>
+    <group>
+      <group position={planPosition(0.51, 1.43)}>
+        <RoundedBox args={[0.6, 1.9, 0.7]} castShadow position={[0, 0.95, 0]} radius={0.05} smoothness={3}><meshStandardMaterial color="#d8dad5" metalness={0.12} /></RoundedBox>
+        <mesh position={[0.22, 1.0, 0.36]}><boxGeometry args={[0.025, 0.3, 0.025]} /><meshStandardMaterial color="#737b77" /></mesh>
       </group>
+
+      <group position={planPosition(0.5, 3.25)}>
+        <mesh castShadow position={[0, 0.45, 0]}><boxGeometry args={[0.6, 0.9, 1.8]} /><meshStandardMaterial color="#c5b59f" /></mesh>
+        <mesh castShadow position={[0, 0.93, 0]}><boxGeometry args={[0.66, 0.07, 1.8]} /><meshStandardMaterial color="#525a56" /></mesh>
+        <group position={[0, 0.99, 0.35]}>{[-0.16, 0.16].flatMap((x) => [-0.2, 0.2].map((z) => <mesh key={`${x}-${z}`} position={[x, 0, z]}><cylinderGeometry args={[0.11, 0.11, 0.025, 20]} /><meshStandardMaterial color="#252927" /></mesh>))}</group>
+      </group>
+      <group position={planPosition(1.49, 3.85)}>
+        <mesh castShadow position={[0, 0.45, 0]}><boxGeometry args={[1.38, 0.9, 0.6]} /><meshStandardMaterial color="#c5b59f" /></mesh>
+        <mesh castShadow position={[0, 0.93, 0]}><boxGeometry args={[1.44, 0.07, 0.66]} /><meshStandardMaterial color="#525a56" /></mesh>
+        <mesh position={[-0.43, 0.98, 0]}><boxGeometry args={[0.52, 0.025, 0.38]} /><meshStandardMaterial color="#909b96" /></mesh>
+        <mesh castShadow position={[-0.43, 1.15, -0.12]} rotation={[0, 0, Math.PI / 2]}><torusGeometry args={[0.16, 0.022, 10, 22, Math.PI]} /><meshStandardMaterial color="#7c8581" metalness={0.6} /></mesh>
+      </group>
+
+      <group position={table}>
+        <mesh castShadow position={[0, 0.72, 0]}><cylinderGeometry args={[0.54, 0.54, 0.08, 40]} /><meshStandardMaterial color="#a77f5e" roughness={0.82} /></mesh>
+        <mesh castShadow position={[0, 0.36, 0]}><cylinderGeometry args={[0.08, 0.13, 0.68, 20]} /><meshStandardMaterial color="#5b5851" /></mesh>
+        <mesh castShadow position={[0, 0.04, 0]}><cylinderGeometry args={[0.34, 0.34, 0.05, 30]} /><meshStandardMaterial color="#5b5851" /></mesh>
+        <group position={[0.05, 0.78, -0.05]} rotation={[0, -0.3, 0]}><Laptop active={computerOn} /></group>
+      </group>
+      <Chair position={planPosition(2.05, 1.43)} rotation={Math.PI} />
+      <Chair position={planPosition(2.05, 2.42)} />
+      <Chair position={planPosition(1.66, 1.93)} rotation={-Math.PI / 2} />
+      <Chair position={planPosition(2.54, 1.93)} rotation={Math.PI / 2} />
     </group>
   );
 }
 
-function Workstation({ computerOn, monitorOn }: { computerOn: boolean; monitorOn: boolean }) {
+function Sofa({ position }: { position: [number, number, number] }) {
   return (
-    <group position={[0.2, 0, -2.35]}>
-      <mesh castShadow position={[0, 0.76, 0]}><boxGeometry args={[1.4, 0.09, 0.7]} /><meshStandardMaterial color="#8c684e" /></mesh>
-      {[-0.58, 0.58].flatMap((x) => [-0.25, 0.25].map((z) => (
-        <mesh castShadow key={`${x}-${z}`} position={[x, 0.37, z]}><boxGeometry args={[0.07, 0.74, 0.07]} /><meshStandardMaterial color="#4c4943" /></mesh>
-      )))}
-      <mesh castShadow position={[0, 1.26, -0.14]}><boxGeometry args={[0.9, 0.54, 0.055]} /><meshStandardMaterial color="#1e2928" emissive="#4d8575" emissiveIntensity={monitorOn ? 0.8 : 0.02} /></mesh>
-      {monitorOn ? (
-        <group position={[0, 1.26, -0.108]}>
-          <mesh position={[-0.21, 0.07, 0]}><planeGeometry args={[0.32, 0.25]} /><meshBasicMaterial color="#8fc5b6" /></mesh>
-          {[0.12, 0.02, -0.08].map((y, index) => <mesh key={y} position={[0.23, y, 0.002]}><planeGeometry args={[0.25 - index * 0.04, 0.025]} /><meshBasicMaterial color={index === 0 ? "#d6e6cf" : "#79a99e"} /></mesh>)}
-        </group>
-      ) : null}
-      <mesh castShadow position={[0, 0.96, -0.14]}><boxGeometry args={[0.08, 0.28, 0.08]} /><meshStandardMaterial color="#3e4542" /></mesh>
-      <mesh castShadow position={[0, 0.83, 0.12]}><boxGeometry args={[0.65, 0.025, 0.22]} /><meshStandardMaterial color="#d5d0c6" /></mesh>
-      <mesh castShadow position={[0.48, 0.84, 0.12]}><boxGeometry args={[0.16, 0.035, 0.22]} /><meshStandardMaterial color="#393d3c" /></mesh>
-      <group position={[-0.49, 0.88, 0.12]}>
-        <mesh castShadow><cylinderGeometry args={[0.09, 0.075, 0.18, 18]} /><meshStandardMaterial color="#d6c7ad" /></mesh>
-        <mesh castShadow position={[0.1, 0.03, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.065, 0.018, 8, 18, Math.PI * 1.55]} /><meshStandardMaterial color="#d6c7ad" /></mesh>
-      </group>
-      <group position={[0.48, 0.39, -0.03]}>
-        <RoundedBox castShadow args={[0.3, 0.66, 0.48]} radius={0.045} smoothness={4}><meshStandardMaterial color="#252c2a" /></RoundedBox>
-        {[0.15, -0.08].map((y) => <mesh key={y} position={[0, y, 0.245]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.075, 0.012, 8, 24]} /><meshStandardMaterial color="#69736e" /></mesh>)}
-        <mesh position={[0.09, 0.24, 0.245]}><sphereGeometry args={[0.018, 12, 12]} /><meshBasicMaterial color={computerOn ? "#53d58a" : "#666c69"} /></mesh>
-      </group>
-      <group position={[0, 0, 0.72]}>
-        <mesh castShadow position={[0, 0.48, 0]}><RoundedBox args={[0.52, 0.12, 0.52]} radius={0.08} smoothness={4}><meshStandardMaterial color="#a3775f" /></RoundedBox></mesh>
-        <mesh castShadow position={[0, 0.9, 0.22]} rotation={[-0.12, 0, 0]}><RoundedBox args={[0.55, 0.68, 0.12]} radius={0.07} smoothness={4}><meshStandardMaterial color="#a3775f" /></RoundedBox></mesh>
-        <mesh castShadow position={[0, 0.24, 0]}><cylinderGeometry args={[0.045, 0.045, 0.45, 12]} /><meshStandardMaterial color="#454946" /></mesh>
-        <mesh castShadow position={[0, 0.04, 0]}><cylinderGeometry args={[0.33, 0.33, 0.045, 20]} /><meshStandardMaterial color="#454946" /></mesh>
-      </group>
+    <group position={position} rotation={[0, Math.PI / 2, 0]}>
+      <RoundedBox args={[2.25, 0.46, 0.9]} castShadow position={[0, 0.38, 0]} radius={0.13} smoothness={4}><meshStandardMaterial color="#c9b49a" roughness={0.9} /></RoundedBox>
+      <RoundedBox args={[2.06, 0.58, 0.15]} castShadow position={[0, 0.8, 0.33]} radius={0.07} smoothness={4} rotation={[-0.12, 0, 0]}><meshStandardMaterial color="#bca387" /></RoundedBox>
+      {[-0.72, 0, 0.72].map((x) => <RoundedBox args={[0.62, 0.13, 0.62]} castShadow key={x} position={[x, 0.69, -0.08]} radius={0.07} smoothness={4}><meshStandardMaterial color="#dfd0ba" /></RoundedBox>)}
+      {[-1.08, 1.08].map((x) => <RoundedBox args={[0.14, 0.55, 0.86]} castShadow key={x} position={[x, 0.55, 0]} radius={0.05} smoothness={4}><meshStandardMaterial color="#bca387" /></RoundedBox>)}
+    </group>
+  );
+}
+
+function Armchair({ position, rotation }: { position: [number, number, number]; rotation: number }) {
+  return (
+    <group position={position} rotation={[0, rotation, 0]}>
+      <RoundedBox args={[0.86, 0.43, 0.84]} castShadow position={[0, 0.36, 0]} radius={0.13} smoothness={4}><meshStandardMaterial color="#d7c4a9" /></RoundedBox>
+      <RoundedBox args={[0.72, 0.58, 0.14]} castShadow position={[0, 0.76, 0.3]} radius={0.07} smoothness={4}><meshStandardMaterial color="#c3aa8b" /></RoundedBox>
+      {[-0.42, 0.42].map((x) => <RoundedBox args={[0.12, 0.48, 0.8]} castShadow key={x} position={[x, 0.5, 0]} radius={0.05} smoothness={4}><meshStandardMaterial color="#c3aa8b" /></RoundedBox>)}
     </group>
   );
 }
@@ -366,52 +386,46 @@ function Workstation({ computerOn, monitorOn }: { computerOn: boolean; monitorOn
 function LivingRoom() {
   return (
     <group>
-      <RoundedBox receiveShadow args={[3.35, 0.045, 2.25]} radius={0.08} smoothness={3} position={[0.65, 0.025, 1.85]}><meshStandardMaterial color="#b96f51" roughness={1} /></RoundedBox>
-      <mesh receiveShadow position={[0.65, 0.052, 1.85]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.66, 0.7, 48]} /><meshBasicMaterial color="#d8a07c" transparent opacity={0.72} /></mesh>
-      <group position={[-0.45, 0, 1.85]} rotation={[0, -Math.PI / 2, 0]}>
-        <RoundedBox castShadow args={[2.25, 0.48, 0.82]} radius={0.16} smoothness={4} position={[0, 0.42, 0]}><meshStandardMaterial color="#d3c0a5" /></RoundedBox>
-        <RoundedBox castShadow args={[2.05, 0.62, 0.18]} radius={0.08} smoothness={4} position={[0, 0.82, 0.28]} rotation={[-0.14, 0, 0]}><meshStandardMaterial color="#c5ad8d" /></RoundedBox>
-        {[-0.72, 0, 0.72].map((x) => <RoundedBox castShadow args={[0.62, 0.14, 0.62]} key={x} radius={0.08} smoothness={4} position={[x, 0.72, -0.08]}><meshStandardMaterial color="#e0cfb7" /></RoundedBox>)}
-        {[-1.08, 1.08].map((x) => <RoundedBox castShadow args={[0.15, 0.55, 0.8]} key={x} radius={0.06} smoothness={4} position={[x, 0.55, 0]}><meshStandardMaterial color="#c5ad8d" /></RoundedBox>)}
+      <Sofa position={planPosition(5.96, 3.65)} />
+      <Armchair position={planPosition(4.92, 2.0)} rotation={2.94} />
+      <RoundedBox args={[0.52, 0.34, 0.52]} castShadow position={planPosition(4.8, 2.85, 0.2)} radius={0.1} smoothness={4}><meshStandardMaterial color="#9dad9f" /></RoundedBox>
+      <group position={planPosition(4.58, 3.65)}>
+        <mesh castShadow position={[0, 0.4, 0]}><cylinderGeometry args={[0.34, 0.34, 0.08, 36]} /><meshStandardMaterial color="#9d7655" /></mesh>
+        <mesh castShadow position={[0, 0.2, 0]}><cylinderGeometry args={[0.07, 0.1, 0.38, 18]} /><meshStandardMaterial color="#525651" /></mesh>
       </group>
-      <group position={[0.75, 0, 1.85]} rotation={[0, Math.PI / 2, 0]}>
-        <RoundedBox castShadow args={[1.22, 0.12, 0.62]} radius={0.09} smoothness={4} position={[0, 0.43, 0]}><meshStandardMaterial color="#a77c59" /></RoundedBox>
-        {[-0.48, 0.48].flatMap((x) => [-0.2, 0.2].map((z) => <mesh castShadow key={`${x}-${z}`} position={[x, 0.21, z]}><boxGeometry args={[0.045, 0.42, 0.045]} /><meshStandardMaterial color="#4c4943" /></mesh>))}
-        <mesh castShadow position={[-0.18, 0.51, 0]} rotation={[0, 0.22, 0]}><cylinderGeometry args={[0.11, 0.09, 0.14, 18]} /><meshStandardMaterial color="#728e82" /></mesh>
-        <mesh castShadow position={[0.19, 0.51, 0]} rotation={[Math.PI / 2, 0.08, 0]}><boxGeometry args={[0.32, 0.025, 0.24]} /><meshStandardMaterial color="#ded1b8" /></mesh>
+      <group position={planPosition(3.3, 3.65)} rotation={[0, Math.PI / 2, 0]}>
+        <mesh castShadow position={[0, 0.34, 0]}><boxGeometry args={[1.05, 0.55, 0.6]} /><meshStandardMaterial color="#80634c" /></mesh>
+        <mesh castShadow position={[0, 1.06, -0.28]}><boxGeometry args={[0.96, 0.62, 0.06]} /><meshStandardMaterial color="#242c2a" emissive="#35534c" emissiveIntensity={0.12} /></mesh>
       </group>
-      <group position={[2.42, 0, 1.85]} rotation={[0, -Math.PI / 2, 0]}>
-        <mesh castShadow position={[0, 0.36, 0]}><boxGeometry args={[1.7, 0.55, 0.42]} /><meshStandardMaterial color="#765d49" /></mesh>
-        <mesh castShadow position={[0, 1.22, -0.02]}><boxGeometry args={[1.5, 0.84, 0.06]} /><meshStandardMaterial color="#1d2524" emissive="#365b52" emissiveIntensity={0.12} /></mesh>
-        <mesh position={[0, 1.22, 0.018]}><planeGeometry args={[1.36, 0.7]} /><meshBasicMaterial color="#29413d" /></mesh>
-      </group>
-      <Plant position={[1.6, 0, 3.08]} scale={1.15} />
     </group>
   );
 }
 
-function Kitchen() {
+function Bed() {
   return (
-    <group position={[3.85, 0, -2.72]}>
-      <mesh receiveShadow position={[-0.3, 1.46, -0.37]}><boxGeometry args={[1.65, 0.82, 0.06]} /><meshStandardMaterial color="#d8d1c2" /></mesh>
-      {[0.33, 0.68, 1.03, 1.38, 1.73].map((y, index) => (
-        <mesh key={y} position={[-0.3, y, -0.332]}><boxGeometry args={[1.6, 0.012, 0.01]} /><meshBasicMaterial color={index % 2 ? "#a5b1ac" : "#c3cbc6"} /></mesh>
+    <group position={planPosition(3.99, 6.56)} rotation={[0, Math.PI / 2, 0]}>
+      <RoundedBox args={[1.56, 0.28, 1.9]} castShadow position={[0, 0.24, 0]} radius={0.07} smoothness={4}><meshStandardMaterial color="#765a46" /></RoundedBox>
+      <RoundedBox args={[1.48, 0.22, 1.8]} castShadow position={[0, 0.47, 0]} radius={0.1} smoothness={4}><meshStandardMaterial color="#eee9de" /></RoundedBox>
+      <RoundedBox args={[1.4, 0.1, 1.05]} castShadow position={[0, 0.64, 0.24]} radius={0.06} smoothness={4}><meshStandardMaterial color="#819b8f" /></RoundedBox>
+      {[-0.4, 0.4].map((x) => <RoundedBox args={[0.58, 0.13, 0.42]} castShadow key={x} position={[x, 0.68, -0.62]} radius={0.09} smoothness={4}><meshStandardMaterial color="#f7f1e7" /></RoundedBox>)}
+      <mesh castShadow position={[0, 0.8, -0.92]}><boxGeometry args={[1.6, 1.05, 0.1]} /><meshStandardMaterial color="#765a46" /></mesh>
+    </group>
+  );
+}
+
+function Bedroom() {
+  return (
+    <group>
+      <Bed />
+      {[5.5, 7.53].map((planY, index) => (
+        <group key={planY} position={planPosition(3.22, planY)}>
+          <RoundedBox args={[0.42, 0.48, 0.34]} castShadow position={[0, 0.24, 0]} radius={0.04} smoothness={3}><meshStandardMaterial color="#9a7558" /></RoundedBox>
+          {index === 0 ? <mesh position={[0, 0.5, 0]}><cylinderGeometry args={[0.13, 0.19, 0.3, 22]} /><meshStandardMaterial color="#d5b887" /></mesh> : null}
+        </group>
       ))}
-      <mesh castShadow position={[-0.35, 0.46, 0]}><boxGeometry args={[1.5, 0.9, 0.66]} /><meshStandardMaterial color="#c2b29b" /></mesh>
-      <mesh castShadow position={[-0.35, 0.94, 0]}><boxGeometry args={[1.58, 0.08, 0.72]} /><meshStandardMaterial color="#4f5652" /></mesh>
-      {[-0.72, -0.35, 0.02].map((x) => <mesh key={x} position={[x, 0.48, 0.345]}><boxGeometry args={[0.02, 0.78, 0.018]} /><meshBasicMaterial color="#827663" /></mesh>)}
-      {[-0.72, -0.35, 0.02].map((x) => <mesh key={`handle-${x}`} position={[x, 0.56, 0.37]}><boxGeometry args={[0.2, 0.025, 0.025]} /><meshStandardMaterial color="#746d61" metalness={0.48} /></mesh>)}
-      <mesh position={[-0.66, 0.995, 0]}><boxGeometry args={[0.48, 0.025, 0.38]} /><meshStandardMaterial color="#87918d" /></mesh>
-      <mesh castShadow position={[-0.66, 1.19, -0.12]} rotation={[0, 0, Math.PI / 2]}><torusGeometry args={[0.18, 0.025, 10, 24, Math.PI]} /><meshStandardMaterial color="#767f7b" metalness={0.7} /></mesh>
-      {[-0.15, 0.15].flatMap((x) => [-0.14, 0.16].map((z) => <mesh key={`${x}-${z}`} position={[x, 1, z]}><cylinderGeometry args={[0.12, 0.12, 0.02, 24]} /><meshStandardMaterial color="#252827" /></mesh>))}
-      <group position={[0.08, 1.09, 0.02]}>
-        <mesh castShadow><cylinderGeometry args={[0.14, 0.14, 0.14, 20]} /><meshStandardMaterial color="#89765d" /></mesh>
-        {[0, 1, 2].map((item) => <mesh castShadow key={item} position={[(item - 1) * 0.06, 0.2 + item * 0.03, 0]} rotation={[0.1, 0, (item - 1) * 0.18]}><cylinderGeometry args={[0.014, 0.014, 0.36, 10]} /><meshStandardMaterial color="#6a6e66" metalness={0.5} /></mesh>)}
-      </group>
-      <group position={[0.79, 0, -0.04]}>
-        <RoundedBox castShadow args={[0.68, 1.92, 0.7]} radius={0.06} smoothness={4} position={[0, 0.96, 0]}><meshStandardMaterial color="#d5d8d4" metalness={0.15} /></RoundedBox>
-        <mesh position={[0.23, 1.05, 0.36]}><boxGeometry args={[0.025, 0.32, 0.025]} /><meshStandardMaterial color="#727b77" /></mesh>
-        <mesh position={[0, 1.35, 0.36]}><boxGeometry args={[0.54, 0.015, 0.012]} /><meshStandardMaterial color="#b3b8b4" /></mesh>
+      <group position={planPosition(6.0, 7.42)}>
+        <RoundedBox args={[0.72, 1.95, 0.58]} castShadow position={[0, 0.975, 0]} radius={0.045} smoothness={3}><meshStandardMaterial color="#9d7b60" /></RoundedBox>
+        <mesh position={[0, 1.0, 0.3]}><boxGeometry args={[0.02, 1.7, 0.02]} /><meshStandardMaterial color="#755b46" /></mesh>
       </group>
     </group>
   );
@@ -419,335 +433,279 @@ function Kitchen() {
 
 function Bathroom() {
   return (
-    <group position={[3.95, 0, 2.15]}>
-      <mesh receiveShadow position={[0, 0.018, 0]}><boxGeometry args={[2.0, 0.035, 2.35]} /><meshStandardMaterial color="#b9c8c5" roughness={0.95} /></mesh>
-      <group position={[0.48, 0, 0.55]}>
-        <RoundedBox castShadow args={[0.45, 0.42, 0.64]} radius={0.16} smoothness={4} position={[0, 0.28, 0]}><meshStandardMaterial color="#f1f1eb" /></RoundedBox>
-        <mesh castShadow position={[0, 0.7, 0.22]}><boxGeometry args={[0.5, 0.68, 0.22]} /><meshStandardMaterial color="#f1f1eb" /></mesh>
-        <mesh position={[0, 0.57, -0.21]} rotation={[-Math.PI / 2, 0, 0]}><torusGeometry args={[0.17, 0.025, 12, 28]} /><meshStandardMaterial color="#e6e6df" /></mesh>
+    <group>
+      <group position={planPosition(1.0, 5.42)}>
+        <RoundedBox args={[1.7, 0.5, 0.7]} castShadow position={[0, 0.28, 0]} radius={0.16} smoothness={4}><meshStandardMaterial color="#f0f0ea" /></RoundedBox>
+        <RoundedBox args={[1.48, 0.08, 0.5]} position={[0, 0.48, 0]} radius={0.14} smoothness={4}><meshStandardMaterial color="#c3e0e2" /></RoundedBox>
+        <mesh castShadow position={[-0.62, 0.88, 0]} rotation={[0, 0, Math.PI / 2]}><torusGeometry args={[0.18, 0.022, 10, 24, Math.PI]} /><meshStandardMaterial color="#7d8783" metalness={0.62} /></mesh>
       </group>
-      <group position={[-0.5, 0, 0.57]}>
-        <mesh castShadow position={[0, 0.43, 0]}><boxGeometry args={[0.76, 0.72, 0.48]} /><meshStandardMaterial color="#8da49e" /></mesh>
-        <RoundedBox castShadow args={[0.82, 0.12, 0.54]} radius={0.09} smoothness={4} position={[0, 0.84, 0]}><meshStandardMaterial color="#f0f0eb" /></RoundedBox>
-        <mesh position={[0, 1.43, 0.22]}><boxGeometry args={[0.62, 0.85, 0.025]} /><meshStandardMaterial color="#9fc8d1" metalness={0.2} /></mesh>
-        <mesh castShadow position={[0, 1.0, 0.2]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.11, 0.02, 10, 24, Math.PI]} /><meshStandardMaterial color="#89938f" metalness={0.65} /></mesh>
+      <group position={planPosition(0.48, 4.56)} rotation={[0, Math.PI, 0]}>
+        <RoundedBox args={[0.42, 0.4, 0.62]} castShadow position={[0, 0.28, 0]} radius={0.15} smoothness={4}><meshStandardMaterial color="#f2f2ec" /></RoundedBox>
+        <mesh castShadow position={[0, 0.7, 0.22]}><boxGeometry args={[0.48, 0.66, 0.2]} /><meshStandardMaterial color="#f2f2ec" /></mesh>
       </group>
-      <group position={[-0.45, 0, -0.55]}>
-        <mesh position={[0, 1.05, 0]}><cylinderGeometry args={[0.025, 0.025, 2.05, 12]} /><meshStandardMaterial color="#777f7c" /></mesh>
-        <mesh position={[0.14, 2.02, 0]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.025, 0.025, 0.28, 12]} /><meshStandardMaterial color="#777f7c" /></mesh>
-        <mesh position={[0.28, 1.98, 0]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.18, 0.18, 0.035, 24]} /><meshStandardMaterial color="#a7afac" /></mesh>
-        <mesh position={[0.25, 1.05, 0]}><boxGeometry args={[0.7, 1.9, 0.025]} /><meshStandardMaterial color="#bce1e5" transparent opacity={0.25} /></mesh>
-        <mesh position={[0.25, 0.09, 0.02]} rotation={[-Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.09, 0.09, 0.012, 24]} /><meshStandardMaterial color="#838b87" metalness={0.55} /></mesh>
+      <group position={planPosition(1.34, 4.48)}>
+        <mesh castShadow position={[0, 0.4, 0]}><boxGeometry args={[0.62, 0.72, 0.46]} /><meshStandardMaterial color="#8ca39c" /></mesh>
+        <RoundedBox args={[0.68, 0.11, 0.5]} castShadow position={[0, 0.82, 0]} radius={0.08} smoothness={4}><meshStandardMaterial color="#efefea" /></RoundedBox>
+        <mesh position={[0, 1.38, -0.22]}><boxGeometry args={[0.58, 0.75, 0.025]} /><meshStandardMaterial color="#9fc6ce" metalness={0.16} /></mesh>
       </group>
-      <mesh castShadow position={[0.4, 1.45, 1.03]}><boxGeometry args={[0.82, 0.06, 0.18]} /><meshStandardMaterial color="#97735c" /></mesh>
-      {[0.16, 0.4, 0.64].map((x, index) => <mesh castShadow key={x} position={[x, 1.62 + index * 0.015, 1.03]}><boxGeometry args={[0.12, 0.28 + index * 0.04, 0.14]} /><meshStandardMaterial color={index === 1 ? "#6f8c83" : "#dfd7c9"} /></mesh>)}
     </group>
   );
 }
 
-function Fan({ snapshot, reducedMotion }: Omit<ApartmentCanvasProps, "overlay">) {
-  const blades = useRef<THREE.Group>(null);
-  useFrame((_, delta) => {
-    if (blades.current && snapshot.devices.fan.power && !reducedMotion) blades.current.rotation.z -= delta * snapshot.devices.fan.speed * 3.5;
-  });
-  return (
-    <group position={[1.55, 1.2, 0.65]} rotation={[0, -0.5, 0]}>
-      <mesh castShadow position={[0, -0.64, 0]}><cylinderGeometry args={[0.075, 0.14, 1.28, 16]} /><meshStandardMaterial color="#c2b7a4" /></mesh>
-      <mesh castShadow rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.46, 0.035, 10, 32]} /><meshStandardMaterial color="#66736c" /></mesh>
-      <group ref={blades}>{[0, Math.PI / 2, Math.PI, Math.PI * 1.5].map((rotation) => <mesh castShadow key={rotation} rotation={[0, 0, rotation]} position={[0.21 * Math.cos(rotation), 0.21 * Math.sin(rotation), 0]}><boxGeometry args={[0.4, 0.1, 0.025]} /><meshStandardMaterial color={snapshot.devices.fan.power ? "#83a18f" : "#b8b7ad"} /></mesh>)}</group>
-      <mesh position={[0, 0, 0.04]}><sphereGeometry args={[0.085, 16, 16]} /><meshStandardMaterial color="#4b5b52" /></mesh>
-    </group>
-  );
-}
-
-function Curtain({ openPercent }: { openPercent: number }) {
-  const openness = THREE.MathUtils.clamp(openPercent / 100, 0, 1);
-  const spread = THREE.MathUtils.lerp(1.18, 0.26, openness);
-  return (
-    <group position={[-3.15, 1.7, -3.2]}>
-      <mesh position={[0, 1.02, 0]}><boxGeometry args={[2.85, 0.05, 0.05]} /><meshStandardMaterial color="#8d806f" /></mesh>
-      {[-1, 1].flatMap((side) => Array.from({ length: 10 }, (_, fold) => {
-        const progress = fold / 9;
-        return (
-          <mesh castShadow key={`${side}-${fold}`} position={[side * (1.34 - progress * spread), 0, 0.08 + (fold % 2) * 0.035]}>
-            <boxGeometry args={[0.16, 2.08, 0.055]} />
-            <meshStandardMaterial color={fold % 2 ? "#cfa87b" : "#dfbd91"} roughness={0.96} />
-          </mesh>
-        );
-      }))}
-    </group>
-  );
-}
-
-function Devices({ snapshot, showLabels, reducedMotion }: { snapshot: RoomSnapshot; showLabels: boolean; reducedMotion: boolean }) {
-  const computerPlug = snapshot.power.smart_plugs.desk_computer;
-  const monitorPlug = snapshot.power.smart_plugs.monitor;
-  return (
-    <>
-      <group position={[0.35, 2.65, -3.42]}>
-        <RoundedBox castShadow args={[1.35, 0.48, 0.22]} radius={0.08} smoothness={4}><meshStandardMaterial color={snapshot.devices.ac.power ? "#f5f5ee" : "#babbb6"} /></RoundedBox>
-        <mesh position={[0, -0.13, 0.125]} rotation={[0.16, 0, 0]}><boxGeometry args={[1.04, 0.1, 0.035]} /><meshStandardMaterial color="#69736e" /></mesh>
-        {snapshot.devices.ac.power ? [-0.34, -0.11, 0.12, 0.35].map((x) => (
-          <mesh key={x} position={[x, -0.56, 0.23]} rotation={[0.28, 0, 0]}>
-            <boxGeometry args={[0.028, 0.7, 0.015]} />
-            <meshBasicMaterial color="#a9d8dc" transparent opacity={0.28} />
-          </mesh>
-        )) : null}
-        <mesh position={[0.45, 0, 0.13]}><sphereGeometry args={[0.035, 12, 12]} /><meshBasicMaterial color={snapshot.devices.ac.power ? "#45b978" : "#696969"} /></mesh>
-        {showLabels ? <SceneLabel kind="device" position={[0, 0.58, 0]}>Điều hòa · {snapshot.devices.ac.temperature_c}°C</SceneLabel> : null}
-      </group>
-      <Fan snapshot={snapshot} reducedMotion={reducedMotion} />
-      {showLabels ? <SceneLabel kind="device" position={[1.55, 2.15, 0.65]}>Quạt · mức {snapshot.devices.fan.speed}</SceneLabel> : null}
-      <group position={[2.15, 0.45, 0.55]}>
-        <RoundedBox castShadow args={[0.56, 0.9, 0.48]} radius={0.1} smoothness={4}><meshStandardMaterial color={snapshot.devices.air_purifier.power ? "#dfeae3" : "#b8bcb8"} /></RoundedBox>
-        {[-0.15, -0.05, 0.05, 0.15].map((x) => <mesh key={x} position={[x, 0.455, 0]}><boxGeometry args={[0.025, 0.012, 0.3]} /><meshStandardMaterial color="#7c8982" /></mesh>)}
-        <mesh position={[0, 0.18, 0.25]}><boxGeometry args={[0.34, 0.17, 0.02]} /><meshBasicMaterial color={snapshot.devices.air_purifier.power ? "#54af7a" : "#6c746f"} /></mesh>
-        {showLabels ? <SceneLabel kind="device" position={[0, 0.82, 0]}>Máy lọc · mức {snapshot.devices.air_purifier.speed}</SceneLabel> : null}
-      </group>
-      <group position={[-4.4, 0.46, -0.1]}>
-        <RoundedBox castShadow args={[0.5, 0.92, 0.5]} radius={0.12} smoothness={4}><meshStandardMaterial color={snapshot.devices.humidity_device.power ? "#b8d8d2" : "#c1c3bd"} /></RoundedBox>
-        <mesh position={[0, 0.48, 0]}><cylinderGeometry args={[0.1, 0.16, 0.08, 20]} /><meshBasicMaterial color={snapshot.devices.humidity_device.power ? "#8ddbd0" : "#9da5a1"} /></mesh>
-        {snapshot.devices.humidity_device.power ? [0, 1, 2].map((particle) => <mesh key={particle} position={[(particle - 1) * 0.055, 0.7 + particle * 0.16, 0]}><sphereGeometry args={[0.035 + particle * 0.01, 12, 12]} /><meshBasicMaterial color="#c7eeea" transparent opacity={0.34 - particle * 0.07} /></mesh>) : null}
-        {showLabels ? <SceneLabel kind="device" position={[0, 0.9, 0]}>Máy tạo ẩm</SceneLabel> : null}
-      </group>
-      <group position={[-1.75, 2.78, 1.25]}>
-        <mesh><cylinderGeometry args={[0.34, 0.22, 0.16, 32]} /><meshStandardMaterial color={snapshot.devices.main_light.power ? kelvinColor(snapshot.devices.main_light.color_temperature_kelvin) : "#aaa89f"} emissive={snapshot.devices.main_light.power ? kelvinColor(snapshot.devices.main_light.color_temperature_kelvin) : "#000000"} emissiveIntensity={0.45} /></mesh>
-        <mesh position={[0, 0.09, 0]}><torusGeometry args={[0.27, 0.025, 10, 32]} /><meshStandardMaterial color="#736d62" metalness={0.42} /></mesh>
-        {showLabels ? <SceneLabel kind="device" position={[0, 0.42, 0]}>Đèn chính · {snapshot.devices.main_light.brightness_percent}%</SceneLabel> : null}
-      </group>
-      <group position={[-4.37, 0.78, -2.58]}>
-        <mesh castShadow><cylinderGeometry args={[0.2, 0.3, 0.38, 24]} /><meshStandardMaterial color={snapshot.devices.bedside_light.power ? kelvinColor(snapshot.devices.bedside_light.color_temperature_kelvin) : "#b7aa98"} emissive={snapshot.devices.bedside_light.power ? kelvinColor(snapshot.devices.bedside_light.color_temperature_kelvin) : "#000000"} emissiveIntensity={0.35} /></mesh>
-        <mesh position={[0, 0.17, 0]}><torusGeometry args={[0.2, 0.018, 8, 24]} /><meshStandardMaterial color="#745f4c" /></mesh>
-        <mesh castShadow position={[0, -0.23, 0]}><cylinderGeometry args={[0.035, 0.035, 0.35, 12]} /><meshStandardMaterial color="#6b5848" /></mesh>
-        {showLabels ? <SceneLabel kind="device" position={[0, 0.48, 0]}>Đèn đầu giường · {snapshot.devices.bedside_light.brightness_percent}%</SceneLabel> : null}
-      </group>
-      {[{ id: "PC", x: 0.88, plug: computerPlug }, { id: "Màn hình", x: 1.18, plug: monitorPlug }].map(({ id, x, plug }) => (
-        <group key={id} position={[x, 0.4, -3.4]} rotation={[Math.PI / 2, 0, 0]}>
-          <RoundedBox castShadow args={[0.22, 0.3, 0.07]} radius={0.035} smoothness={4}><meshStandardMaterial color="#f0eee7" /></RoundedBox>
-          <mesh position={[0, 0.03, 0.04]}><cylinderGeometry args={[0.045, 0.045, 0.018, 18]} /><meshBasicMaterial color={plug.state === "on" ? "#4fbd7b" : "#858b87"} /></mesh>
-          {showLabels ? <SceneLabel kind="device" position={[0, 0.55, 0]}>Ổ cắm {id} · {plug.state === "on" ? "bật" : "tắt"}</SceneLabel> : null}
-        </group>
-      ))}
-      {showLabels ? <SceneLabel kind="device" position={[0.2, 1.75, -2.25]}>Máy tính · {computerPlug.state === "on" ? "bật" : "tắt"}</SceneLabel> : null}
-      {showLabels ? <SceneLabel kind="device" position={[0.2, 2.05, -2.35]}>Màn hình · {monitorPlug.state === "on" ? "bật" : "tắt"}</SceneLabel> : null}
-      {showLabels ? <SceneLabel kind="device" position={[-3.15, 3.18, -3.25]}>Rèm · mở {snapshot.devices.curtain.position_percent}%</SceneLabel> : null}
-      {showLabels ? <SceneLabel kind="device" position={[-3.15, 2.9, -3.2]}>Cửa sổ · {snapshot.openings.window_state === "open" ? "mở" : "đóng"}</SceneLabel> : null}
-    </>
-  );
-}
-
-function Sensors({ snapshot, overlay }: Pick<ApartmentCanvasProps, "snapshot" | "overlay">) {
-  return (
-    <>
-      {overlay === "temperature" ? <SensorNode color="#e37b56" label="Nhiệt độ · độ ẩm" position={[-1.08, 1.35, -1.7]} value={`${snapshot.environment.temperature_c.toFixed(1)}°C · ${snapshot.environment.humidity_percent.toFixed(0)}%`} /> : null}
-      {overlay === "air" ? <SensorNode color="#4f9b73" label="CO₂" position={[-1.08, 1.35, -1.45]} value={`${snapshot.environment.co2_ppm.toFixed(0)} ppm`} /> : null}
-      {overlay === "air" ? <SensorNode color="#609db1" label="PM2.5" position={[1.2, 0.82, 2.05]} value={`${snapshot.environment.pm25_ug_m3.toFixed(1)} µg/m³`} /> : null}
-      {overlay === "light" ? <SensorNode color="#d8aa45" label="Ánh sáng bàn" position={[0.72, 1.02, -2.15]} value={`${snapshot.environment.ambient_light_lux.toFixed(0)} lux`} /> : null}
-      {overlay === "noise" ? <SensorNode color="#8e6cab" label="Tiếng ồn sinh hoạt" position={[-0.15, 0.78, 2.68]} value={`${snapshot.environment.noise_db.toFixed(1)} dB`} /> : null}
-    </>
-  );
-}
-
-function SensorField({ snapshot, overlay }: Pick<ApartmentCanvasProps, "snapshot" | "overlay">) {
-  const fieldColor = snapshot.environment.temperature_c < 22
-    ? "#66a9cf"
-    : snapshot.environment.temperature_c > 28
-      ? "#df7659"
-      : "#deb566";
-  const airRisk = Math.max(
-    snapshot.environment.co2_ppm / 1_500,
-    snapshot.environment.pm25_ug_m3 / 35,
-  );
-  const airColor = airRisk > 1 ? "#d36b58" : airRisk > 0.65 ? "#d7ad56" : "#5fa57c";
-
+function HallAndCloset() {
   return (
     <group>
-      {overlay === "temperature" ? (
-        <>
-          <mesh position={[0, 0.036, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={2}>
-            <planeGeometry args={[9.75, 6.75]} />
-            <meshBasicMaterial color={fieldColor} depthWrite={false} transparent opacity={0.08} />
-          </mesh>
-          {[[-3.2, -1.8, 1.45], [0.2, -2.35, 1.15], [-0.7, 1.7, 1.7]].map(([x, z, radius], index) => (
-            <mesh key={index} position={[x, 0.041, z]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={3}>
-              <circleGeometry args={[radius, 48]} />
-              <meshBasicMaterial color={fieldColor} depthWrite={false} transparent opacity={0.08 + index * 0.025} />
-            </mesh>
-          ))}
-        </>
-      ) : null}
-      {overlay === "air" ? (
-        <>
-          {[1.0, 1.55, 2.1].map((radius, index) => (
-            <mesh key={radius} position={[2.15, 0.042 + index * 0.002, 0.55]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={3}>
-              <ringGeometry args={[radius - 0.035, radius, 64]} />
-              <meshBasicMaterial color={airColor} depthWrite={false} transparent opacity={0.34 - index * 0.07} />
-            </mesh>
-          ))}
-          <mesh position={[-0.2, 0.039, -0.2]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={2}>
-            <circleGeometry args={[3.7, 64]} />
-            <meshBasicMaterial color={airColor} depthWrite={false} transparent opacity={0.055} />
-          </mesh>
-        </>
-      ) : null}
-      {overlay === "light" ? (
-        <>
-          <mesh position={[-3.15, 0.041, -1.65]} rotation={[-Math.PI / 2, 0, -0.12]} renderOrder={3}>
-            <circleGeometry args={[1.55, 48]} />
-            <meshBasicMaterial color="#f1c766" depthWrite={false} transparent opacity={0.17} />
-          </mesh>
-          <mesh position={[-1.75, 0.043, 1.25]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={3}>
-            <ringGeometry args={[1.55, 1.62, 64]} />
-            <meshBasicMaterial color="#f4d88b" depthWrite={false} transparent opacity={0.42} />
-          </mesh>
-        </>
-      ) : null}
-      {overlay === "noise" ? [0.8, 1.35, 1.9].map((radius, index) => (
-        <mesh key={radius} position={[1.55, 0.042 + index * 0.002, 0.65]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={3}>
-          <ringGeometry args={[radius - 0.045, radius, 64]} />
-          <meshBasicMaterial color="#906cac" depthWrite={false} transparent opacity={0.42 - index * 0.09} />
-        </mesh>
-      )) : null}
+      <group position={planPosition(1.76, 7.19)} rotation={[0, Math.PI / 2, 0]}>
+        <RoundedBox args={[0.7, 0.52, 0.3]} castShadow position={[0, 0.26, 0]} radius={0.05} smoothness={3}><meshStandardMaterial color="#98765a" /></RoundedBox>
+        {[-0.23, 0, 0.23].map((x) => <mesh key={x} position={[x, 0.3, 0.16]}><boxGeometry args={[0.02, 0.32, 0.02]} /><meshStandardMaterial color="#716050" /></mesh>)}
+      </group>
+      <group position={planPosition(5.66, 0.74)}>
+        <RoundedBox args={[0.58, 1.9, 0.72]} castShadow position={[0, 0.95, 0]} radius={0.04} smoothness={3}><meshStandardMaterial color="#9a785c" /></RoundedBox>
+        <mesh position={[0, 0.98, 0.37]}><boxGeometry args={[0.02, 1.65, 0.02]} /><meshStandardMaterial color="#715744" /></mesh>
+      </group>
+      <Chair position={planPosition(5.06, 0.74)} rotation={-Math.PI / 2} />
     </group>
   );
 }
 
-function WindowPanel({ hingeX, panelOffset, openAngle }: { hingeX: number; panelOffset: number; openAngle: number }) {
+function SceneLabel({ children, position }: { children: ReactNode; position: [number, number, number] }) {
+  return <Html center distanceFactor={8} position={position}><span className="scene-device">{children}</span></Html>;
+}
+
+function SensorNode({ color, label, labelOffset = [0, 0.5, 0], mountRotation = [0, 0, 0], position, value }: { color: string; label: string; labelOffset?: [number, number, number]; mountRotation?: [number, number, number]; position: [number, number, number]; value: string }) {
   return (
-    <group position={[hingeX, 1.72, -3.38]} rotation={[0, openAngle, 0]}>
-      <mesh castShadow position={[panelOffset, 0, 0]}>
-        <boxGeometry args={[1.35, 1.86, 0.035]} />
-        <meshPhysicalMaterial color="#b9e0e6" roughness={0.08} transmission={0.35} transparent opacity={0.58} />
-      </mesh>
-      {[-0.675, 0.675].map((x) => <mesh castShadow key={x} position={[panelOffset + x, 0, 0.01]}><boxGeometry args={[0.045, 1.92, 0.055]} /><meshStandardMaterial color="#667877" metalness={0.5} roughness={0.35} /></mesh>)}
-      {[-0.94, 0, 0.94].map((y) => <mesh castShadow key={y} position={[panelOffset, y, 0.01]}><boxGeometry args={[1.39, 0.045, 0.055]} /><meshStandardMaterial color="#667877" metalness={0.5} roughness={0.35} /></mesh>)}
-      <mesh position={[panelOffset - Math.sign(panelOffset) * 0.09, 0, 0.07]}><boxGeometry args={[0.025, 0.27, 0.025]} /><meshStandardMaterial color="#53605e" metalness={0.55} /></mesh>
+    <group position={position}>
+      <group rotation={mountRotation}>
+        <mesh castShadow><cylinderGeometry args={[0.09, 0.09, 0.055, 22]} /><meshStandardMaterial color="#f5f2ea" roughness={0.55} /></mesh>
+        <mesh position={[0, 0.034, 0]}><cylinderGeometry args={[0.045, 0.045, 0.012, 18]} /><meshBasicMaterial color={color} /></mesh>
+      </group>
+      <Html center distanceFactor={7} position={labelOffset}>
+        <div className="sensor-pin" style={{ "--sensor-color": color } as CSSProperties}><span>{label}</span><strong>{value}</strong></div>
+      </Html>
     </group>
   );
 }
 
-function FloorPlan({ windowState }: { windowState: "open" | "closed" }) {
-  const open = windowState === "open";
-  const textures = useSurfaceTextures();
+function ContextSensor({ kind, label, position, rotation = [0, 0, 0], showLabel }: { kind: "contact" | "motion"; label: string; position: [number, number, number]; rotation?: [number, number, number]; showLabel: boolean }) {
+  const contact = kind === "contact";
+  return (
+    <group position={position}>
+      <group rotation={rotation}>
+        {contact ? (
+          <>
+            <mesh castShadow position={[-0.055, 0, 0]}><boxGeometry args={[0.08, 0.18, 0.035]} /><meshStandardMaterial color="#f1eee6" /></mesh>
+            <mesh castShadow position={[0.055, 0, 0]}><boxGeometry args={[0.04, 0.13, 0.03]} /><meshStandardMaterial color="#d9d8d2" /></mesh>
+          </>
+        ) : (
+          <mesh castShadow><cylinderGeometry args={[0.09, 0.09, 0.045, 24]} /><meshStandardMaterial color="#f1eee6" /></mesh>
+        )}
+        <mesh position={[contact ? -0.055 : 0, 0.027, contact ? 0.019 : 0]}><sphereGeometry args={[0.012, 10, 10]} /><meshBasicMaterial color="#55b77d" /></mesh>
+      </group>
+      {showLabel ? <SceneLabel position={[0, 0.3, 0]}>{label}</SceneLabel> : null}
+    </group>
+  );
+}
+
+function Sensors({ overlay, snapshot }: Pick<ApartmentCanvasProps, "overlay" | "snapshot">) {
+  const wallStation = planPosition(3.01, 4.45, 1.35);
+  const wallMount: [number, number, number] = [0, 0, -Math.PI / 2];
+  const showContextLabels = overlay === "devices";
   return (
     <>
-      <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[10, 7]} /><meshStandardMaterial map={textures.wood} color="#d2c2aa" roughness={0.88} /></mesh>
-      <mesh receiveShadow position={[3.85, 0.014, -2.27]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[2.3, 2.42]} /><meshStandardMaterial map={textures.stone} color="#c8bca8" roughness={0.84} /></mesh>
-      <mesh receiveShadow position={[3.86, 0.018, 2.31]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[2.15, 2.25]} /><meshStandardMaterial map={textures.tile} color="#c5d2ce" roughness={0.82} /></mesh>
-      <Grid args={[10, 7]} position={[0, 0.028, 0]} cellColor="#6e7a72" cellSize={1} cellThickness={0.28} fadeDistance={18} fadeStrength={1.5} sectionColor="#52645a" sectionSize={5} sectionThickness={0.5} />
-
-      <Wall position={[-4.75, 1.55, -3.5]} size={[0.5, 3.1, 0.14]} />
-      <Wall position={[1.6, 1.55, -3.5]} size={[6.8, 3.1, 0.14]} />
-      <Wall position={[-3.15, 0.36, -3.5]} size={[2.7, 0.72, 0.14]} />
-      <Wall position={[-3.15, 2.9, -3.5]} size={[2.7, 0.4, 0.14]} />
-      <Wall position={[-5, 1.55, 0]} size={[0.14, 3.1, 7]} />
-      <Wall position={[5, 1.55, -2.25]} size={[0.14, 3.1, 2.5]} />
-      <Wall position={[5, 0.18, 1.25]} size={[0.14, 0.36, 4.5]} />
-      <Wall position={[0, 0.18, 3.5]} size={[10, 0.36, 0.14]} />
-
-      <Wall position={[-1.12, 1.55, -2.325]} size={[0.12, 3.1, 2.35]} />
-      <Wall position={[-1.12, 1.55, 0.25]} size={[0.12, 3.1, 1.1]} />
-      <Wall position={[-1.12, 2.75, -0.725]} size={[0.12, 0.8, 0.85]} />
-      <Wall position={[-1.12, 1.55, 0.82]} size={[0.17, 3.1, 0.17]} />
-
-      <Wall position={[3.86, 1.55, 1.15]} size={[2.28, 3.1, 0.12]} />
-      <Wall position={[2.72, 1.55, 1.875]} size={[0.12, 3.1, 1.45]} />
-      <Wall position={[2.72, 2.75, 3.025]} size={[0.12, 0.8, 0.85]} />
-
-      <Trim position={[-3.15, 0.74, -3.34]} size={[2.88, 0.12, 0.28]} />
-      <WindowPanel hingeX={-4.5} panelOffset={0.675} openAngle={open ? -0.72 : 0} />
-      <WindowPanel hingeX={-1.8} panelOffset={-0.675} openAngle={open ? 0.72 : 0} />
-      <Door position={[2.66, 0, 2.6]} rotation={-Math.PI / 2} />
-
-      <Trim position={[1.6, 0.1, -3.4]} size={[6.8, 0.2, 0.08]} />
-      <Trim position={[-4.9, 0.1, 0]} size={[0.08, 0.2, 7]} />
-      <Trim position={[-1.03, 0.1, -2.325]} size={[0.07, 0.2, 2.35]} />
-      <Trim position={[-1.03, 0.1, 0.25]} size={[0.07, 0.2, 1.1]} />
-      <Trim position={[4.9, 0.1, -2.25]} size={[0.08, 0.2, 2.5]} />
-      <SceneLabel position={[-3.1, 0.08, -2.95]}>PHÒNG NGỦ</SceneLabel>
-      <SceneLabel position={[0.35, 0.08, -3.0]}>GÓC LÀM VIỆC</SceneLabel>
-      <SceneLabel position={[0.65, 0.08, 3.15]}>PHÒNG KHÁCH</SceneLabel>
-      <SceneLabel position={[3.8, 0.08, -3.15]}>BẾP</SceneLabel>
-      <SceneLabel position={[3.9, 0.08, 2.75]}>PHÒNG TẮM</SceneLabel>
+      {overlay === "temperature" ? <SensorNode color="#e37b56" label="Trạm môi trường · nhiệt ẩm" mountRotation={wallMount} position={wallStation} value={`${snapshot.environment.temperature_c.toFixed(1)}°C · ${snapshot.environment.humidity_percent.toFixed(0)}%`} /> : null}
+      {overlay === "air" ? <SensorNode color="#4f9b73" label="Trạm môi trường · không khí" mountRotation={wallMount} position={wallStation} value={`CO₂ ${snapshot.environment.co2_ppm.toFixed(0)} ppm · PM2.5 ${snapshot.environment.pm25_ug_m3.toFixed(1)} µg/m³`} /> : null}
+      {overlay === "light" ? <SensorNode color="#d8aa45" label="Ánh sáng mặt bàn" labelOffset={[-0.55, 0.35, 0]} position={planPosition(2.28, 2.2, 0.79)} value={`${snapshot.environment.ambient_light_lux.toFixed(0)} lux`} /> : null}
+      {overlay === "noise" ? <SensorNode color="#8e6cab" label="Trạm môi trường · tiếng ồn" mountRotation={wallMount} position={wallStation} value={`${snapshot.environment.noise_db.toFixed(1)} dB`} /> : null}
+      <ContextSensor kind="contact" label="Cửa ra vào" position={planPosition(1.8, 7.7, 1.96)} showLabel={showContextLabels} />
+      <ContextSensor kind="contact" label="Cửa sổ phòng ngủ" position={planPosition(6.36, 6.23, 1.45)} rotation={[0, Math.PI / 2, 0]} showLabel={showContextLabels} />
+      <ContextSensor kind="motion" label="Chuyển động sảnh" position={planPosition(2.25, 6.65, 2.39)} showLabel={showContextLabels} />
+      {/* ponytail: context sensor states are static; connect backend telemetry when occupancy topics exist. */}
     </>
+  );
+}
+
+function Fan({ active, lightActive, lightBrightness, reducedMotion, speed }: { active: boolean; lightActive: boolean; lightBrightness: number; reducedMotion: boolean; speed: number }) {
+  const blades = useRef<THREE.Group>(null);
+  useFrame((_, delta) => {
+    if (blades.current && active && !reducedMotion) blades.current.rotation.y -= delta * Math.max(speed, 1) * 2.4;
+  });
+  return (
+    <group position={planPosition(4.75, 3.55, 2.3)}>
+      <mesh position={[0, 0.08, 0]}><cylinderGeometry args={[0.04, 0.04, 0.18, 14]} /><meshStandardMaterial color="#626a65" /></mesh>
+      <group ref={blades}>{[0, Math.PI / 2, Math.PI, Math.PI * 1.5].map((angle) => <mesh key={angle} position={[Math.cos(angle) * 0.32, 0, Math.sin(angle) * 0.32]} rotation={[0, -angle, 0]}><boxGeometry args={[0.58, 0.035, 0.13]} /><meshStandardMaterial color={active ? "#81998d" : "#a5a6a0"} /></mesh>)}</group>
+      <mesh><cylinderGeometry args={[0.1, 0.13, 0.1, 18]} /><meshStandardMaterial color="#56615b" /></mesh>
+      <mesh position={[0, -0.07, 0]}><cylinderGeometry args={[0.18, 0.15, 0.08, 28]} /><meshStandardMaterial color={lightActive ? "#fff0c7" : "#aaa8a0"} emissive={lightActive ? "#ffd99c" : "#000000"} emissiveIntensity={lightActive ? 0.2 + lightBrightness / 180 : 0} /></mesh>
+    </group>
+  );
+}
+
+function BedroomCurtain({ openPercent }: { openPercent: number }) {
+  const openness = THREE.MathUtils.clamp(openPercent / 100, 0, 1);
+  const panelDepth = THREE.MathUtils.lerp(0.58, 0.16, openness);
+  return (
+    <group position={planPosition(6.28, 6.23, 1.45)}>
+      {[-1, 1].map((side) => (
+        <RoundedBox args={[0.08, 1.85, panelDepth]} castShadow key={side} position={[0, 0, side * (0.61 - panelDepth / 2)]} radius={0.035} smoothness={3}>
+          <meshStandardMaterial color="#d4b58f" roughness={0.96} />
+        </RoundedBox>
+      ))}
+    </group>
+  );
+}
+
+function SmartDevices({ overlay, reducedMotion, snapshot }: ApartmentCanvasProps) {
+  const showLabels = overlay === "devices";
+  return (
+    <>
+      <group position={planPosition(6.53, 2.15, 2.13)} rotation={[0, -Math.PI / 2, 0]}>
+        <RoundedBox args={[1.15, 0.4, 0.19]} castShadow radius={0.07} smoothness={4}><meshStandardMaterial color={snapshot.devices.ac.power ? "#f4f4ed" : "#b8bab6"} /></RoundedBox>
+        <mesh position={[0.45, 0, 0.105]}><sphereGeometry args={[0.025, 12, 12]} /><meshBasicMaterial color={snapshot.devices.ac.power ? "#4fc77f" : "#6c716e"} /></mesh>
+        {showLabels ? <SceneLabel position={[0, 0.45, 0]}>Điều hòa · {snapshot.devices.ac.temperature_c}°C</SceneLabel> : null}
+      </group>
+      <Fan active={snapshot.devices.fan.power} lightActive={snapshot.devices.main_light.power} lightBrightness={snapshot.devices.main_light.brightness_percent} reducedMotion={reducedMotion} speed={snapshot.devices.fan.speed} />
+      {showLabels ? <SceneLabel position={planPosition(4.75, 3.55, 2.72)}>Quạt · mức {snapshot.devices.fan.speed} · đèn {snapshot.devices.main_light.brightness_percent}%</SceneLabel> : null}
+      <group position={planPosition(3.35, 4.65, 0.42)}>
+        <RoundedBox args={[0.48, 0.84, 0.44]} castShadow radius={0.09} smoothness={4}><meshStandardMaterial color={snapshot.devices.air_purifier.power ? "#dbe8e0" : "#b8bbb7"} /></RoundedBox>
+        <mesh position={[0, 0.15, 0.23]}><boxGeometry args={[0.27, 0.13, 0.02]} /><meshBasicMaterial color={snapshot.devices.air_purifier.power ? "#55b77d" : "#707773"} /></mesh>
+        {showLabels ? <SceneLabel position={[0, 0.76, 0]}>Máy lọc · mức {snapshot.devices.air_purifier.speed}</SceneLabel> : null}
+      </group>
+      <group position={planPosition(5.05, 4.65, 0.32)}>
+        <RoundedBox args={[0.34, 0.64, 0.32]} castShadow radius={0.07} smoothness={4}><meshStandardMaterial color={snapshot.devices.humidity_device.power ? "#d6e7e8" : "#b9bcba"} /></RoundedBox>
+        <mesh position={[0, 0.12, 0.17]}><boxGeometry args={[0.2, 0.1, 0.02]} /><meshBasicMaterial color={snapshot.devices.humidity_device.power ? "#54a9bd" : "#717775"} /></mesh>
+        {showLabels ? <SceneLabel position={[0, 0.65, 0]}>{snapshot.devices.humidity_device.mode === "humidify" ? "Máy tạo ẩm" : "Máy hút ẩm"} · {snapshot.devices.humidity_device.target_humidity_percent}%</SceneLabel> : null}
+      </group>
+      <BedroomCurtain openPercent={snapshot.devices.curtain.position_percent} />
+      {showLabels ? <SceneLabel position={planPosition(3.22, 5.5, 1.45)}>Đèn đầu giường · {snapshot.devices.bedside_light.brightness_percent}%</SceneLabel> : null}
+      {showLabels ? <SceneLabel position={planPosition(6.08, 6.24, 2.05)}>Rèm · mở {snapshot.devices.curtain.position_percent}%</SceneLabel> : null}
+      {showLabels ? <SceneLabel position={planPosition(2.05, 1.93, 1.5)}>Máy tính · {snapshot.power.smart_plugs.desk_computer.state === "on" ? "bật" : "tắt"}</SceneLabel> : null}
+    </>
+  );
+}
+
+function ResidentHead({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      <mesh castShadow><sphereGeometry args={[0.115, 20, 20]} /><meshStandardMaterial color="#c98e70" roughness={0.82} /></mesh>
+      <mesh castShadow position={[0, 0.07, -0.015]} scale={[1.03, 0.58, 1.02]}><sphereGeometry args={[0.116, 20, 20]} /><meshStandardMaterial color="#3c302b" roughness={0.96} /></mesh>
+      <mesh position={[0, -0.005, 0.112]}><sphereGeometry args={[0.018, 10, 10]} /><meshStandardMaterial color="#b9785d" /></mesh>
+      {[-0.038, 0.038].map((x) => <mesh key={x} position={[x, 0.025, 0.105]}><sphereGeometry args={[0.009, 8, 8]} /><meshBasicMaterial color="#292624" /></mesh>)}
+    </group>
+  );
+}
+
+function SeatedResident({ seatHeight, working = false }: { seatHeight: number; working?: boolean }) {
+  return (
+    <group>
+      <RoundedBox args={[0.34, 0.46, 0.2]} castShadow position={[0, seatHeight + 0.36, -0.015]} radius={0.08} smoothness={4}><meshStandardMaterial color="#54796f" roughness={0.9} /></RoundedBox>
+      <ResidentHead position={[0, seatHeight + 0.72, 0]} />
+      {[-0.1, 0.1].map((x) => (
+        <group key={x}>
+          <RoundedBox args={[0.13, 0.13, 0.38]} castShadow position={[x, seatHeight + 0.04, 0.2]} radius={0.055} smoothness={3}><meshStandardMaterial color="#394e54" /></RoundedBox>
+          <RoundedBox args={[0.12, Math.max(0.32, seatHeight - 0.08), 0.12]} castShadow position={[x, Math.max(0.2, seatHeight / 2), 0.38]} radius={0.05} smoothness={3}><meshStandardMaterial color="#394e54" /></RoundedBox>
+          <RoundedBox args={[0.13, 0.08, 0.25]} castShadow position={[x, 0.06, 0.47]} radius={0.04} smoothness={3}><meshStandardMaterial color="#3a3835" /></RoundedBox>
+        </group>
+      ))}
+      {[-0.22, 0.22].map((x) => (
+        <group key={x}>
+          <RoundedBox args={[0.1, 0.32, 0.1]} castShadow position={[x, seatHeight + 0.38, 0.07]} radius={0.045} rotation={[-0.55, 0, 0]} smoothness={3}><meshStandardMaterial color="#c98e70" /></RoundedBox>
+          <RoundedBox args={[0.095, 0.1, working ? 0.34 : 0.24]} castShadow position={[x, seatHeight + 0.22, working ? 0.27 : 0.2]} radius={0.04} smoothness={3}><meshStandardMaterial color="#c98e70" /></RoundedBox>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function SleepingResident() {
+  return (
+    <group>
+      <ResidentHead position={[0, 0.12, -0.62]} />
+      <RoundedBox args={[0.36, 0.2, 0.55]} castShadow position={[0, 0.09, -0.24]} radius={0.09} smoothness={4}><meshStandardMaterial color="#54796f" /></RoundedBox>
+      {[-0.1, 0.1].map((x) => <RoundedBox args={[0.13, 0.14, 0.7]} castShadow key={x} position={[x, 0.07, 0.39]} radius={0.055} smoothness={3}><meshStandardMaterial color="#394e54" /></RoundedBox>)}
+      {[-0.24, 0.24].map((x) => <RoundedBox args={[0.1, 0.12, 0.48]} castShadow key={x} position={[x, 0.08, -0.18]} radius={0.045} smoothness={3}><meshStandardMaterial color="#c98e70" /></RoundedBox>)}
+    </group>
+  );
+}
+
+function ReadingResident() {
+  return (
+    <group>
+      <RoundedBox args={[0.34, 0.48, 0.2]} castShadow position={[0, 0.43, -0.35]} radius={0.08} rotation={[-0.42, 0, 0]} smoothness={4}><meshStandardMaterial color="#54796f" /></RoundedBox>
+      <ResidentHead position={[0, 0.78, -0.52]} />
+      {[-0.1, 0.1].map((x) => <RoundedBox args={[0.13, 0.14, 0.78]} castShadow key={x} position={[x, 0.08, 0.18]} radius={0.055} smoothness={3}><meshStandardMaterial color="#394e54" /></RoundedBox>)}
+      {[-0.2, 0.2].map((x) => <RoundedBox args={[0.1, 0.1, 0.38]} castShadow key={x} position={[x, 0.44, -0.05]} radius={0.045} rotation={[-0.35, 0, x < 0 ? -0.2 : 0.2]} smoothness={3}><meshStandardMaterial color="#c98e70" /></RoundedBox>)}
+      <group position={[0, 0.46, 0.12]} rotation={[-0.25, 0, 0]}>
+        {[-0.11, 0.11].map((x) => <mesh castShadow key={x} position={[x, 0, 0]} rotation={[0, x < 0 ? -0.18 : 0.18, 0]}><boxGeometry args={[0.22, 0.025, 0.3]} /><meshStandardMaterial color="#aa664e" roughness={0.88} /></mesh>)}
+      </group>
+    </group>
+  );
+}
+
+function Resident({ reducedMotion, snapshot }: Omit<ApartmentCanvasProps, "overlay">) {
+  const group = useRef<THREE.Group>(null);
+  const context = snapshot.inferred_context;
+  const placement = residentPlacements[context];
+  const targetVector = useMemo(() => new THREE.Vector3(...placement.position), [placement.position]);
+  useFrame((_, delta) => {
+    if (!group.current) return;
+    const speed = reducedMotion ? 24 : 3.8;
+    group.current.position.lerp(targetVector, Math.min(1, delta * speed));
+    group.current.rotation.y = THREE.MathUtils.damp(group.current.rotation.y, placement.rotation, speed, delta);
+  });
+  if (!snapshot.occupancy.room_present) return null;
+  return (
+    <group ref={group} position={placement.position} rotation={[0, placement.rotation, 0]}>
+      {context === "working" ? <SeatedResident seatHeight={0.56} working /> : null}
+      {context === "relaxing" ? <SeatedResident seatHeight={0.76} /> : null}
+      {context === "sleeping" ? <SleepingResident /> : null}
+      {context === "reading_in_bed" ? <ReadingResident /> : null}
+      <Html center distanceFactor={8} position={[0, placement.labelHeight, 0]}><span className="scene-label resident-label">{contextLabels[context]}</span></Html>
+    </group>
   );
 }
 
 function StudioScene(props: ApartmentCanvasProps) {
   const { snapshot } = props;
-  const daylight = THREE.MathUtils.clamp(snapshot.environment.ambient_light_lux / 1_400, 0.06, 1.35);
-  const mainLight = snapshot.devices.main_light;
-  const bedsideLight = snapshot.devices.bedside_light;
-  const curtainLight = snapshot.devices.curtain.position_percent / 100;
-  const background = new THREE.Color("#c8d3cf").lerp(new THREE.Color("#eadfca"), Math.min(1, daylight));
-
+  const daylight = THREE.MathUtils.clamp(snapshot.environment.ambient_light_lux / 1_300, 0.08, 1.2);
+  const background = new THREE.Color("#c7d4d1").lerp(new THREE.Color("#eadfc9"), Math.min(1, daylight));
   return (
     <>
-      <color attach="background" args={[background]} />
-      <fog attach="fog" args={[background, 14, 25]} />
-      <ambientLight intensity={0.28 + daylight * 0.28} />
-      <hemisphereLight color="#fff2da" groundColor="#796b5c" intensity={0.42 + daylight * 0.34} />
-      <directionalLight
-        castShadow
-        color="#fff0d2"
-        intensity={0.35 + daylight * 1.05}
-        position={[-4, 9, -4]}
-        shadow-bias={-0.00035}
-        shadow-camera-bottom={-6}
-        shadow-camera-far={22}
-        shadow-camera-left={-7}
-        shadow-camera-right={7}
-        shadow-camera-top={6}
-        shadow-mapSize={[2048, 2048]}
-      />
-      {mainLight.power ? <pointLight castShadow color={kelvinColor(mainLight.color_temperature_kelvin)} decay={2} distance={7} intensity={mainLight.brightness_percent / 46} position={[-1.75, 2.68, 1.25]} shadow-mapSize={[512, 512]} /> : null}
-      {bedsideLight.power ? <pointLight castShadow color={kelvinColor(bedsideLight.color_temperature_kelvin)} decay={2} distance={4.5} intensity={bedsideLight.brightness_percent / 38} position={[-4.35, 1.15, -2.58]} shadow-mapSize={[512, 512]} /> : null}
-      <mesh position={[-3.15, 0.032, -1.65]} rotation={[-Math.PI / 2, 0, -0.12]}>
-        <planeGeometry args={[2.5, 1.65]} />
-        <meshBasicMaterial color="#f6c878" depthWrite={false} transparent opacity={Math.min(0.3, daylight * curtainLight * 0.24)} />
-      </mesh>
+      <color args={[background]} attach="background" />
+      <fog args={[background, 13, 23]} attach="fog" />
+      <ambientLight intensity={0.3 + daylight * 0.24} />
+      <hemisphereLight color="#fff2dc" groundColor="#756b5e" intensity={0.48 + daylight * 0.3} />
+      <directionalLight castShadow color="#fff0d2" intensity={0.45 + daylight} position={[-4, 9, 5]} shadow-bias={-0.00035} shadow-camera-bottom={-5} shadow-camera-far={20} shadow-camera-left={-6} shadow-camera-right={6} shadow-camera-top={6} shadow-mapSize={[2048, 2048]} />
+      {snapshot.devices.main_light.power ? <pointLight castShadow color="#ffe5b4" decay={2} distance={6} intensity={snapshot.devices.main_light.brightness_percent / 50} position={planPosition(4.75, 3.55, 2.25)} shadow-mapSize={[512, 512]} /> : null}
+      {snapshot.devices.bedside_light.power ? <pointLight castShadow color="#ffd8a6" decay={2} distance={3.5} intensity={snapshot.devices.bedside_light.brightness_percent / 44} position={planPosition(3.22, 5.5, 0.95)} shadow-mapSize={[512, 512]} /> : null}
 
-      <FloorPlan windowState={snapshot.openings.window_state} />
-      <Curtain openPercent={snapshot.devices.curtain.position_percent} />
-      <Bed />
-      <Workstation
-        computerOn={snapshot.power.smart_plugs.desk_computer.state === "on"}
-        monitorOn={snapshot.power.smart_plugs.monitor.state === "on"}
-      />
+      <ApartmentShell />
+      <KitchenDining computerOn={snapshot.power.smart_plugs.desk_computer.state === "on"} />
       <LivingRoom />
-      <Kitchen />
+      <Bedroom />
       <Bathroom />
-      <Devices snapshot={snapshot} showLabels={props.overlay === "devices"} reducedMotion={props.reducedMotion} />
-      <SensorField snapshot={snapshot} overlay={props.overlay} />
-      <Sensors snapshot={snapshot} overlay={props.overlay} />
-      <Resident snapshot={snapshot} reducedMotion={props.reducedMotion} />
-      <ContactShadows blur={2.2} color="#3b3228" far={3.8} frames={1} opacity={0.3} position={[0, 0.035, 0]} resolution={512} scale={[11, 8]} />
+      <HallAndCloset />
+      <SmartDevices {...props} />
+      <Sensors overlay={props.overlay} snapshot={snapshot} />
+      <Resident reducedMotion={props.reducedMotion} snapshot={snapshot} />
+      <ContactShadows blur={2.2} color="#3a3128" far={3.5} frames={1} opacity={0.28} position={[0, 0.025, 0]} resolution={512} scale={[8, 9]} />
 
-      {/* ponytail: primitive geometry keeps demo offline; replace components with compressed local glTF when photorealism matters. */}
-      <OrbitControls dampingFactor={0.08} enableDamping enablePan maxDistance={16} maxPolarAngle={1.35} minDistance={8} minPolarAngle={0.42} target={[0, 0.65, -0.15]} />
+      {/* ponytail: elevations and device mounts are inferred; replace after measured survey or authored BIM/Blender model exists. */}
+      <OrbitControls dampingFactor={0.08} enableDamping enablePan maxDistance={15} maxPolarAngle={1.42} minDistance={6} minPolarAngle={0.35} target={[0, 0.45, 0]} />
     </>
   );
 }
 
 function ResponsiveCamera() {
   const { camera, size } = useThree();
-
   useEffect(() => {
     if (!(camera instanceof THREE.PerspectiveCamera)) return;
-
     const portrait = size.width <= 760 && size.height > size.width;
     const tablet = size.width <= 1200;
-    const position: [number, number, number] = portrait
-      ? [15, 13.5, 18]
-      : tablet
-        ? [12, 10.5, 14]
-        : [9.8, 8.6, 11.5];
-
+    const position: [number, number, number] = portrait ? [8.8, 17, 11.7] : tablet ? [7.1, 14.2, 9.4] : [5.8, 12, 7.7];
     camera.position.set(...position);
-    camera.fov = portrait ? 54 : tablet ? 46 : 39;
+    camera.lookAt(0, 0.45, 0);
+    camera.fov = portrait ? 54 : tablet ? 47 : 40;
     camera.updateProjectionMatrix();
   }, [camera, size.height, size.width]);
-
   return null;
 }
 
@@ -757,14 +715,14 @@ export default function ApartmentCanvas(props: ApartmentCanvasProps) {
     <div className="apartment-canvas-wrap">
       <WebglErrorBoundary>
         <Canvas
-          key={cameraKey}
-          camera={{ position: [9.8, 8.6, 11.5], fov: 39 }}
+          camera={{ fov: 40, position: [5.8, 12, 7.7] }}
           dpr={[1, 1.65]}
           fallback={<div className="webgl-fallback">WebGL không khả dụng. Dùng bảng trạng thái bên dưới.</div>}
           gl={{ antialias: true, powerPreference: "high-performance" }}
+          key={cameraKey}
           onCreated={({ gl }) => {
             gl.toneMapping = THREE.ACESFilmicToneMapping;
-            gl.toneMappingExposure = 1.06;
+            gl.toneMappingExposure = 1.05;
           }}
           shadows
         >
@@ -778,7 +736,7 @@ export default function ApartmentCanvas(props: ApartmentCanvasProps) {
       </div>
       <div className="scene-compass" aria-hidden="true"><span>B</span></div>
       <div className="scene-instructions" aria-hidden="true">Kéo để xoay · cuộn để thu phóng</div>
-      <div className="scene-scale" aria-hidden="true">1 ô ≈ 1 mét · mô hình 10 × 7 m</div>
+      <div className="scene-scale" aria-hidden="true">6,73 × 7,81 m · trần 2,45 m</div>
       <button className="camera-reset" onClick={() => setCameraKey((value) => value + 1)} type="button">Đặt lại góc nhìn</button>
     </div>
   );
