@@ -61,6 +61,7 @@ export function useBrowserVoice({ busy, responseText, onCommand, onTranscript }:
   const audioUrlRef = useRef("");
   const speechRequestRef = useRef<AbortController | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const browserSpeechAttemptRef = useRef(0);
 
   useEffect(() => {
     const voiceWindow = window as VoiceWindow;
@@ -330,26 +331,31 @@ export function useBrowserVoice({ busy, responseText, onCommand, onTranscript }:
 
   async function speak(text: string) {
     stopSpeaking();
+    const browserSpeechAttempt = browserSpeechAttemptRef.current;
     setError("");
     if (SPEECH_MODE === "browser") {
-      speakWithBrowser(text);
+      await speakWithBrowser(text, browserSpeechAttempt);
       return;
     }
     await speakLocally(text);
   }
 
-  function speakWithBrowser(text: string) {
+  async function speakWithBrowser(text: string, attempt: number) {
     if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
       setError("Trình duyệt không hỗ trợ đọc văn bản.");
       return;
     }
     setSynthesizing(true);
+    const voice = await waitForVietnameseVoice(window.speechSynthesis);
+    if (browserSpeechAttemptRef.current !== attempt) return;
+    if (!voice) {
+      setSynthesizing(false);
+      setError("Không tìm thấy giọng đọc tiếng Việt trên trình duyệt hoặc thiết bị này.");
+      return;
+    }
     const utterance = new SpeechSynthesisUtterance(text);
-    const voices = window.speechSynthesis.getVoices();
     utterance.lang = "vi-VN";
-    utterance.voice = voices.find((voice) => voice.lang.toLowerCase() === "vi-vn")
-      ?? voices.find((voice) => voice.lang.toLowerCase().startsWith("vi"))
-      ?? null;
+    utterance.voice = voice;
     utterance.onend = () => {
       if (utteranceRef.current !== utterance) return;
       utteranceRef.current = null;
@@ -399,6 +405,7 @@ export function useBrowserVoice({ busy, responseText, onCommand, onTranscript }:
   }
 
   function stopSpeaking() {
+    browserSpeechAttemptRef.current += 1;
     speechRequestRef.current?.abort();
     speechRequestRef.current = null;
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
@@ -433,4 +440,31 @@ function browserRecognitionError(error: string): string {
   if (error === "no-speech") return "Không nghe thấy giọng nói. Hãy thử lại.";
   if (error === "network") return "Dịch vụ nhận dạng của trình duyệt đang mất kết nối.";
   return "Trình duyệt không nhận dạng được tiếng Việt.";
+}
+
+function findVietnameseVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+  const language = (voice: SpeechSynthesisVoice) => voice.lang.toLowerCase().replaceAll("_", "-");
+  return voices.find((voice) => language(voice) === "vi-vn")
+    ?? voices.find((voice) => language(voice) === "vi" || language(voice).startsWith("vi-"))
+    ?? null;
+}
+
+function waitForVietnameseVoice(synthesis: SpeechSynthesis): Promise<SpeechSynthesisVoice | null> {
+  const voice = findVietnameseVoice(synthesis.getVoices());
+  if (voice) return Promise.resolve(voice);
+
+  return new Promise((resolve) => {
+    let timeoutId = 0;
+    const finish = (loadedVoice: SpeechSynthesisVoice | null) => {
+      window.clearTimeout(timeoutId);
+      synthesis.removeEventListener("voiceschanged", handleVoicesChanged);
+      resolve(loadedVoice);
+    };
+    const handleVoicesChanged = () => {
+      const loadedVoice = findVietnameseVoice(synthesis.getVoices());
+      if (loadedVoice) finish(loadedVoice);
+    };
+    synthesis.addEventListener("voiceschanged", handleVoicesChanged);
+    timeoutId = window.setTimeout(() => finish(findVietnameseVoice(synthesis.getVoices())), 2_000);
+  });
 }
