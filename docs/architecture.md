@@ -5,7 +5,7 @@
 ```text
 Localhost                         Render Free / HTTPS
 MediaRecorder -> /api/asr        SpeechRecognition vi-VN
-/api/tts -> WAV                  speechSynthesis vi-VN
+/api/tts -> VieNeu/Supertonic    /api/tts -> Piper medium WAV
              \                    /
               Next.js web app ---------------- GET /api/events (SSE)
                        |                                  ^
@@ -26,9 +26,9 @@ MediaRecorder -> /api/asr        SpeechRecognition vi-VN
 ### Web
 
 - Render cozy fixed-layout 3D apartment and accessible text equivalent.
-- Select speech provider at build time with `NEXT_PUBLIC_SPEECH_MODE`.
+- Select capture provider with `NEXT_PUBLIC_SPEECH_MODE` and TTS provider with `NEXT_PUBLIC_TTS_MODE`.
 - Local mode records with `MediaRecorder`, uploads to faster-whisper, and plays backend WAV.
-- Browser mode uses `SpeechRecognition` and `speechSynthesis` with `vi-VN`; optional wake phrase stays `en-US`.
+- Render mode uses `SpeechRecognition` with `vi-VN`, then plays Piper WAV returned by backend; optional wake phrase stays `en-US`.
 - Send text requests and manual commands through REST.
 - Consume ordered state and trace events through one SSE stream.
 
@@ -39,8 +39,8 @@ MediaRecorder -> /api/asr        SpeechRecognition vi-VN
 - Run OpenAI Responses tool loop and publish safe trace events.
 - Validate numerical targets before simulation mutations.
 - Record conversations, actions, trace summaries, preferences, and implicit feedback evidence.
-- Load local ASR/TTS modules only when `LOCAL_SPEECH_ENABLED=true`.
-- In local mode, normalize Vietnamese TTS text, synthesize through VieNeu/Supertonic, and transcribe through faster-whisper.
+- Load backend TTS only when `TTS_ENABLED=true`; load faster-whisper separately when `LOCAL_ASR_ENABLED=true`.
+- Normalize Vietnamese TTS text through the same lexicon/VietNormalizer path before VieNeu, Supertonic, or Piper synthesis.
 
 ### Simulation engine
 
@@ -61,8 +61,9 @@ SQLite stores sensor samples, device actions, conversations, trace events, prefe
 - Responses API over Chat Completions: assistant needs structured tools and reasoning in one workflow.
 - Primitive local 3D geometry first: reliable demo without asset licensing or network loading.
 - Local speech over cloud speech for development: controlled model, vocabulary and offline behavior.
-- Browser speech on Render Free: removes model dependencies and CPU/RAM inference from server, accepting browser compatibility and voice variation.
-- Optional `speech` dependency extra: local commands install it; deployment image omits it.
+- Browser ASR on Render Free: removes Whisper from server while keeping text fallback for unsupported browsers.
+- Piper medium TTS on Render Free: removes browser voice dependency; measured full-service RSS is about 250 MiB under the 512 MB limit.
+- Optional dependency extras: local commands install `speech`; deployment installs only `piper`.
 - Ephemeral SQLite on Render Free: adequate for demo, not durable preference storage.
 - No automatic device changes outside explicit scenario, manual, or assistant actions.
 - Implicit learning records evidence only; applying a promoted preference still requires a later validated assistant action.
@@ -75,4 +76,4 @@ SQLite stores sensor samples, device actions, conversations, trace events, prefe
 - SSE disconnect: web reconnects and fetches fresh snapshot before processing new events.
 - WebGL unavailable: dashboard and accessible apartment status remain usable.
 - Microphone unavailable: text input remains usable.
-- Local speech engine unavailable or browser Web Speech unsupported: final text remains visible and device actions remain complete.
+- Backend TTS unavailable or browser recognition unsupported: final text remains visible and device actions remain complete.

@@ -77,20 +77,25 @@ assistant = AssistantOrchestrator(
 )
 offline_tts: Any | None = None
 vietnamese_asr: Any | None = None
-if settings.local_speech_enabled:
-    from app.asr import VietnameseAsr
-    from app.tts import OfflineTts, SupertonicTts, VieneuTts
+if settings.tts_enabled:
+    from app.tts import OfflineTts, PiperTts, SupertonicTts, VieneuTts
 
-    supertonic_tts = SupertonicTts(
-        voice=settings.supertonic_voice,
-        steps=settings.supertonic_steps,
-        speed=settings.supertonic_speed,
-    )
-    vieneu_tts = VieneuTts(voice=settings.vieneu_voice)
-    offline_tts = OfflineTts(
-        primary=vieneu_tts if settings.tts_engine == "vieneu" else supertonic_tts,
-        fallback=supertonic_tts if settings.tts_engine == "vieneu" else None,
-    )
+    if settings.tts_engine == "piper":
+        offline_tts = PiperTts(model_path=settings.piper_model_path, voice=settings.piper_voice)
+    else:
+        supertonic_tts = SupertonicTts(
+            voice=settings.supertonic_voice,
+            steps=settings.supertonic_steps,
+            speed=settings.supertonic_speed,
+        )
+        vieneu_tts = VieneuTts(voice=settings.vieneu_voice)
+        offline_tts = OfflineTts(
+            primary=vieneu_tts if settings.tts_engine == "vieneu" else supertonic_tts,
+            fallback=supertonic_tts if settings.tts_engine == "vieneu" else None,
+        )
+if settings.local_asr_enabled:
+    from app.asr import VietnameseAsr
+
     vietnamese_asr = VietnameseAsr(
         model_name=settings.asr_model,
         device=settings.asr_device,
@@ -214,11 +219,16 @@ async def assistant_request(request: AssistantRequest) -> AssistantAccepted:
 @app.post("/api/tts")
 async def synthesize_speech(request: SpeechRequest) -> Response:
     if offline_tts is None:
-        raise HTTPException(status_code=503, detail="Local TTS is disabled; use browser speech synthesis.")
+        raise HTTPException(status_code=503, detail="Backend TTS is disabled.")
+    if len(request.text) > settings.tts_max_characters:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Văn bản TTS vượt quá {settings.tts_max_characters} ký tự.",
+        )
     try:
         speech = await asyncio.to_thread(offline_tts.synthesize, request.text)
     except Exception as error:
-        raise HTTPException(status_code=503, detail="Không thể tạo giọng đọc ngoại tuyến.") from error
+        raise HTTPException(status_code=503, detail="Không thể tạo giọng đọc tiếng Việt.") from error
     return Response(
         content=speech.audio,
         media_type="audio/wav",

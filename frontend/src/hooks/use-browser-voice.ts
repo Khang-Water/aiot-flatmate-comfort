@@ -6,8 +6,17 @@ import { API_URL, jsonRequest } from "@/lib/api";
 
 type VoiceStatus = "idle" | "listening" | "transcribing" | "waiting_wake" | "unsupported";
 type SpeechMode = "browser" | "local";
+type TtsMode = "backend" | "browser";
 
 const SPEECH_MODE: SpeechMode = process.env.NEXT_PUBLIC_SPEECH_MODE === "browser" ? "browser" : "local";
+const TTS_MODE: TtsMode = configuredTtsMode();
+
+function configuredTtsMode(): TtsMode {
+  if (process.env.NEXT_PUBLIC_TTS_MODE === "backend" || process.env.NEXT_PUBLIC_TTS_MODE === "browser") {
+    return process.env.NEXT_PUBLIC_TTS_MODE;
+  }
+  return SPEECH_MODE === "browser" ? "browser" : "backend";
+}
 
 interface RecognitionResult { 0: { transcript: string } }
 interface RecognitionEvent extends Event { results: ArrayLike<RecognitionResult> }
@@ -71,7 +80,7 @@ export function useBrowserVoice({ busy, responseText, onCommand, onTranscript }:
     const canCapture = SPEECH_MODE === "browser" ? canRecognize : canRecord;
     setSupported(canCapture);
     setWakeSupported(canRecognize);
-    setSpeechSupported(SPEECH_MODE === "local" || canSpeak);
+    setSpeechSupported(TTS_MODE === "backend" || canSpeak);
     setStatus(canCapture ? "idle" : "unsupported");
     return () => {
       wakeEnabledRef.current = false;
@@ -333,7 +342,7 @@ export function useBrowserVoice({ busy, responseText, onCommand, onTranscript }:
     stopSpeaking();
     const browserSpeechAttempt = browserSpeechAttemptRef.current;
     setError("");
-    if (SPEECH_MODE === "browser") {
+    if (TTS_MODE === "browser") {
       await speakWithBrowser(text, browserSpeechAttempt);
       return;
     }
@@ -390,12 +399,12 @@ export function useBrowserVoice({ busy, responseText, onCommand, onTranscript }:
       audioRef.current = audio;
       audioUrlRef.current = url;
       audio.onended = stopSpeaking;
-      audio.onerror = () => { setError("Không phát được âm thanh ngoại tuyến."); stopSpeaking(); };
+      audio.onerror = () => { setError("Không phát được âm thanh từ máy chủ."); stopSpeaking(); };
       await audio.play();
       setSpeaking(true);
     } catch (speechError) {
       if (!(speechError instanceof DOMException && speechError.name === "AbortError")) {
-        setError(speechError instanceof Error ? speechError.message : "Không tạo được giọng đọc ngoại tuyến.");
+        setError(speechError instanceof Error ? speechError.message : "Không tạo được giọng đọc từ máy chủ.");
       }
       stopSpeaking();
     } finally {

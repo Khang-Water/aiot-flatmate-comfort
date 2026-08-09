@@ -189,6 +189,18 @@ def test_tts_returns_actual_engine_headers_without_loading_model(
     assert response.content.startswith(b"RIFF")
 
 
+def test_tts_rejects_text_over_runtime_limit(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(main_module.settings, "tts_max_characters", 5)
+
+    response = client.post("/api/tts", json={"text": "Xin chào"})
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Văn bản TTS vượt quá 5 ký tự."
+
+
 def test_asr_returns_vietnamese_transcript_without_loading_model(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -217,6 +229,6 @@ def test_local_speech_routes_report_disabled_backend(
     asr_response = client.post("/api/asr", files={"audio": ("command.webm", b"audio-data", "audio/webm")})
 
     assert tts_response.status_code == 503
-    assert tts_response.json()["detail"] == "Local TTS is disabled; use browser speech synthesis."
+    assert tts_response.json()["detail"] == "Backend TTS is disabled."
     assert asr_response.status_code == 503
     assert asr_response.json()["detail"] == "Local ASR is disabled; use browser speech recognition."

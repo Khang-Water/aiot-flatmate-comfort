@@ -40,7 +40,7 @@ Voice states:
 7. Completed with response and simulated state change.
 8. Failed with retry action and unchanged-state notice.
 
-Controls: push-to-talk, optional wake-mode toggle, text field, send, stop capture, automatic speech toggle, and stop speech. Local TTS plays backend WAV; deployment calls browser `speechSynthesis`.
+Controls: push-to-talk, optional wake-mode toggle, text field, send, stop capture, automatic speech toggle, and stop speech. Localhost and deployment both play backend WAV; Render backend uses Piper medium.
 
 ## Dashboard
 

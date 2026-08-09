@@ -1,6 +1,6 @@
 # Backend
 
-Python 3.11 FastAPI simulation and assistant service. Optional local speech extra uses faster-whisper ASR, VieNeu v3 Turbo ONNX synthesis, and Supertonic fallback; Render omits this extra.
+Python 3.11 FastAPI simulation and assistant service. Optional local speech extra uses faster-whisper ASR, VieNeu v3 Turbo ONNX synthesis, and Supertonic fallback. Render installs only lightweight Piper TTS extra.
 
 Current modules:
 
@@ -15,7 +15,7 @@ app/
 ├── simulation.py        clock, drift, context, scenarios
 ├── scenarios.py         JSON scenario repository
 ├── commands.py          atomic device validation
-├── tts.py               normalized VieNeu synthesis + Supertonic fallback
+├── tts.py               normalized VieNeu, Supertonic, and Piper synthesis
 └── storage.py           SQLite history, preference evidence, and implicit learning
 ```
 
@@ -27,4 +27,6 @@ First `POST /api/asr` downloads faster-whisper `small` to the local cache. Defau
 
 First `POST /api/tts` downloads VieNeu v3 Turbo model assets. Default engine is ONNX `int8` on CPU with voice `Mai Anh`; set `TTS_ENGINE=supertonic` to disable VieNeu. Supertonic remains automatic fallback and uses `SUPERTONIC_VOICE`, `SUPERTONIC_STEPS`, and `SUPERTONIC_SPEED`.
 
-Set `LOCAL_SPEECH_ENABLED=false` when installing without `--extra speech`. `/api/asr` and `/api/tts` then return `503`; deployed frontend uses browser speech instead.
+Render uses `TTS_ENGINE=piper`, `PIPER_VOICE=vi_VN-vais1000-medium`, a bundled 63.2 MB model, and `TTS_MAX_CHARACTERS=800`. Piper loads lazily, uses one ONNX thread, and serializes synthesis. Set `LOCAL_ASR_ENABLED=false` to keep `/api/asr` disabled while `/api/tts` remains available.
+
+`TTS_ENABLED` controls `/api/tts`; `LOCAL_ASR_ENABLED` controls `/api/asr`. Missing engine or model returns `503`; text response remains visible.

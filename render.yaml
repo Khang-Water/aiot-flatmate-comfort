@@ -25,5 +25,15 @@ services:
         value: https://flatmate-comfort.onrender.com
       - key: DATABASE_PATH
         value: /tmp/flatmate.db
-      - key: LOCAL_SPEECH_ENABLED
+      - key: TTS_ENABLED
+        value: "true"
+      - key: LOCAL_ASR_ENABLED
         value: "false"
+      - key: TTS_ENGINE
+        value: piper
+      - key: TTS_MAX_CHARACTERS
+        value: "800"
+      - key: PIPER_MODEL_PATH
+        value: /app/models/vi_VN-vais1000-medium.onnx
+      - key: PIPER_VOICE
+        value: vi_VN-vais1000-medium

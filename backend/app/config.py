@@ -30,12 +30,16 @@ class Settings(BaseSettings):
     openai_api_mode: Literal["responses", "chat_completions"] = "responses"
     openai_reasoning_effort: str = "low"
     openai_timeout_seconds: float = Field(default=45, gt=0, le=180)
-    local_speech_enabled: bool = True
-    tts_engine: Literal["vieneu", "supertonic"] = "vieneu"
+    tts_enabled: bool = True
+    local_asr_enabled: bool = True
+    tts_engine: Literal["vieneu", "supertonic", "piper"] = "vieneu"
+    tts_max_characters: int = Field(default=2_000, ge=1, le=2_000)
     vieneu_voice: str = "Mai Anh"
     supertonic_voice: str = Field(default="F4", pattern=r"^[MF][1-5]$")
     supertonic_steps: int = Field(default=12, ge=5, le=12)
     supertonic_speed: float = Field(default=1.0, ge=0.7, le=2.0)
+    piper_model_path: Path = PROJECT_ROOT / "models" / "vi_VN-vais1000-medium.onnx"
+    piper_voice: str = "vi_VN-vais1000-medium"
     asr_model: str = "small"
     asr_device: str = "cpu"
     asr_compute_type: str = "int8"

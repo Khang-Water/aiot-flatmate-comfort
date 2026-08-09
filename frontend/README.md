@@ -18,5 +18,7 @@ src/
 
 Run from repository root with `make web`.
 
-- `NEXT_PUBLIC_SPEECH_MODE=local`: default localhost mode; uploads `MediaRecorder` audio to `/api/asr` and requests WAV from `/api/tts`.
-- `NEXT_PUBLIC_SPEECH_MODE=browser`: deployment mode; uses `SpeechRecognition` and `speechSynthesis` with `vi-VN`, keeping speech models off server.
+- `NEXT_PUBLIC_SPEECH_MODE=local`: captures with `MediaRecorder` and uploads audio to `/api/asr`.
+- `NEXT_PUBLIC_SPEECH_MODE=browser`: captures through `SpeechRecognition` with `vi-VN`.
+- `NEXT_PUBLIC_TTS_MODE=backend`: requests WAV from `/api/tts`; used by localhost and Render Piper deployment.
+- `NEXT_PUBLIC_TTS_MODE=browser`: optional fallback using `speechSynthesis` and an installed `vi`/`vi-VN` voice.

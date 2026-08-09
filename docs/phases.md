@@ -42,7 +42,7 @@ Acceptance: representative text requests cause correct simulated changes; invali
 
 Implement push-to-talk as the reliable primary flow, optional English wake-word recognition, Vietnamese command recognition, microphone controls, interim transcript, speech synthesis, and text fallback.
 
-Implemented: localhost `MediaRecorder` + faster-whisper `small` Vietnamese ASR, VieNeu v3 Turbo + Supertonic local TTS, optional Web Speech `en-US` wake mode, and deployment mode using browser `SpeechRecognition`/`speechSynthesis` with `vi-VN`. Backend tests, TypeScript, and production build pass.
+Implemented: localhost `MediaRecorder` + faster-whisper `small` Vietnamese ASR, VieNeu v3 Turbo + Supertonic local TTS, optional Web Speech `en-US` wake mode, and deployment mode using browser `SpeechRecognition` with backend Piper `vi_VN-vais1000-medium` TTS. Backend tests, TypeScript, production build, and Docker smoke test pass.
 
 Acceptance:
 

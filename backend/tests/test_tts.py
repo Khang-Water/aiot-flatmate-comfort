@@ -1,11 +1,13 @@
 import sys
+from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 import pytest
 from vietnormalizer import VietnameseNormalizer
 
 from app.asr import SMART_HOME_VOCABULARY
-from app.tts import OfflineTts, SynthesizedSpeech, VieneuTts, prepare_vietnamese_tts_text
+from app.tts import OfflineTts, PiperTts, SynthesizedSpeech, VieneuTts, prepare_vietnamese_tts_text
 
 
 class _BrokenTts:
@@ -16,6 +18,14 @@ class _BrokenTts:
 class _FallbackTts:
     def synthesize(self, text: str) -> SynthesizedSpeech:
         return SynthesizedSpeech(b"RIFF-fallback", 1.0, text, "supertonic-3", "F4")
+
+
+class _FakePiperVoice:
+    def synthesize_wav(self, _: str, wav_file: Any) -> None:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(22_050)
+        wav_file.writeframes(b"\x00\x00" * 22_050)
 
 
 def test_aiot_terms_are_normalized_for_vietnamese_speech() -> None:
@@ -122,6 +132,45 @@ def test_vieneu_initialization_failure_is_not_retried(monkeypatch: pytest.Monkey
     tts = VieneuTts("Mai Anh")
 
     with pytest.raises(RuntimeError):
+        tts.synthesize("Xin chào")
+    with pytest.raises(RuntimeError, match="previously failed"):
+        tts.synthesize("Xin chào")
+
+    assert attempts == 1
+
+
+def test_piper_returns_normalized_wave_without_loading_real_model(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    tts = PiperTts(tmp_path / "voice.onnx", "vi_VN-vais1000-medium")
+    monkeypatch.setattr(tts, "_load_engine", _FakePiperVoice)
+
+    speech = tts.synthesize("Nhiệt độ 25°C, CO₂ 800 ppm.")
+
+    assert speech.audio.startswith(b"RIFF")
+    assert speech.duration_seconds == 1.0
+    assert "hai mươi lăm độ" in speech.normalized_text
+    assert "xê ô hai" in speech.normalized_text
+    assert speech.engine == "piper-1.6.0-onnx-cpu"
+    assert speech.voice == "vi_VN-vais1000-medium"
+
+
+def test_piper_initialization_failure_is_not_retried(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    attempts = 0
+    tts = PiperTts(tmp_path / "voice.onnx", "vi_VN-vais1000-medium")
+
+    def fail_to_load() -> None:
+        nonlocal attempts
+        attempts += 1
+        raise RuntimeError("missing model")
+
+    monkeypatch.setattr(tts, "_load_engine", fail_to_load)
+
+    with pytest.raises(RuntimeError, match="missing model"):
         tts.synthesize("Xin chào")
     with pytest.raises(RuntimeError, match="previously failed"):
         tts.synthesize("Xin chào")

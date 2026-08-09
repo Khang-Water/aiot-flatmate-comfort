@@ -1,11 +1,12 @@
+import json
 import re
+import wave
 from dataclasses import dataclass
 from io import BytesIO
+from pathlib import Path
 from threading import Lock
 from typing import Any, Protocol
 
-import soundfile as sf
-from supertonic import TTS
 from vietnormalizer import VietnameseNormalizer
 
 from app.tts_lexicon import apply_app_tts_lexicon
@@ -79,6 +80,8 @@ class VieneuTts:
 
     def synthesize(self, text: str) -> SynthesizedSpeech:
         with self._lock:
+            import soundfile as sf
+
             engine = self._get_engine()
             normalized = prepare_vietnamese_tts_text(text, self._normalizer)
             # ponytail: Fixed CPU tuning; expose knobs only when another deployment needs different hardware tuning.
@@ -111,13 +114,15 @@ class SupertonicTts:
         self.voice = voice
         self.steps = steps
         self.speed = speed
-        self._engine: TTS | None = None
+        self._engine: Any | None = None
         self._normalizer = VietnameseNormalizer()
         self._lock = Lock()
 
     def synthesize(self, text: str) -> SynthesizedSpeech:
         with self._lock:
             if self._engine is None:
+                from supertonic import TTS
+
                 self._engine = TTS(auto_download=True)
             normalized = prepare_vietnamese_tts_text(text, self._normalizer)
             style = self._engine.get_voice_style(voice_name=self.voice)
@@ -130,6 +135,8 @@ class SupertonicTts:
                 max_chunk_length=300,
                 silence_duration=0.08,
             )
+            import soundfile as sf
+
             output = BytesIO()
             sf.write(output, wav.squeeze(), self._engine.sample_rate, format="WAV", subtype="PCM_16")
             return SynthesizedSpeech(
@@ -137,6 +144,66 @@ class SupertonicTts:
                 duration_seconds=float(duration[0]),
                 normalized_text=normalized,
                 engine="supertonic-3",
+                voice=self.voice,
+            )
+
+
+class PiperTts:
+    """Lazy single-threaded Piper engine sized for Render Free."""
+
+    def __init__(self, model_path: Path, voice: str) -> None:
+        self.model_path = model_path
+        self.voice = voice
+        self._engine: Any | None = None
+        self._load_error: Exception | None = None
+        self._normalizer = VietnameseNormalizer()
+        self._lock = Lock()
+
+    def _load_engine(self) -> Any:
+        import onnxruntime
+        from piper import PiperVoice
+        from piper.config import PiperConfig
+
+        config_path = Path(f"{self.model_path}.json")
+        with config_path.open(encoding="utf-8") as config_file:
+            config = PiperConfig.from_dict(json.load(config_file))
+        options = onnxruntime.SessionOptions()
+        # ponytail: Render Free has 0.1 CPU; expose thread tuning when deployment gains dedicated CPU.
+        options.intra_op_num_threads = 1
+        options.inter_op_num_threads = 1
+        session = onnxruntime.InferenceSession(
+            str(self.model_path),
+            sess_options=options,
+            providers=["CPUExecutionProvider"],
+        )
+        return PiperVoice(session=session, config=config)
+
+    def _get_engine(self) -> Any:
+        if self._load_error is not None:
+            raise RuntimeError("Piper initialization previously failed") from self._load_error
+        if self._engine is None:
+            try:
+                self._engine = self._load_engine()
+            except Exception as error:
+                self._load_error = error
+                raise
+        return self._engine
+
+    def synthesize(self, text: str) -> SynthesizedSpeech:
+        with self._lock:
+            engine = self._get_engine()
+            normalized = prepare_vietnamese_tts_text(text, self._normalizer)
+            output = BytesIO()
+            with wave.open(output, "wb") as wav_file:
+                engine.synthesize_wav(normalized, wav_file)
+            audio = output.getvalue()
+            with wave.open(BytesIO(audio), "rb") as wav_file:
+                duration_seconds = wav_file.getnframes() / wav_file.getframerate()
+            return SynthesizedSpeech(
+                audio=audio,
+                duration_seconds=duration_seconds,
+                normalized_text=normalized,
+                engine="piper-1.6.0-onnx-cpu",
                 voice=self.voice,
             )
 

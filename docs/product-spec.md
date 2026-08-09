@@ -58,7 +58,7 @@ Current text flow:
 
 Phase 5 adds:
 
-`microphone active -> wake detected (optional) -> local ASR or browser SpeechRecognition -> current text flow -> local TTS or browser speechSynthesis`
+`microphone active -> wake detected (optional) -> local ASR or browser SpeechRecognition -> current text flow -> backend Vietnamese TTS`
 
 Each event includes status, timestamp, duration when known, safe input/output data, and concise model-provided rationale.
 

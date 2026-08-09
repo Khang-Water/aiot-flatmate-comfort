@@ -12,6 +12,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+piper = [
+    "piper-tts==1.6.0",
+    "vietnormalizer==0.2.3",
+]
 speech = [
     "faster-whisper==1.2.1",
     "soundfile==0.14.0",

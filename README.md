@@ -22,13 +22,13 @@ Hệ thống không sử dụng thiết bị vật lý. MQTT, ESP32, Home Assist
 
 ## Trạng thái hiện tại
 
-Sản phẩm gồm bộ máy mô phỏng tất định, lịch sử SQLite, bộ nhớ sở thích có cấu trúc, implicit-feedback từ manual override, cập nhật trạng thái qua SSE, bản sao số căn hộ một phòng ngủ, lớp phủ cảm biến và thiết bị, chọn ngữ cảnh hiện diện, bảng theo dõi 24 giờ, điều khiển có quy tắc bảo vệ và voice mode theo môi trường. Localhost dùng `MediaRecorder`, faster-whisper, VieNeu và Supertonic; bản Render dùng `SpeechRecognition` cùng `speechSynthesis` của trình duyệt để không tải model speech vào máy chủ.
+Sản phẩm gồm bộ máy mô phỏng tất định, lịch sử SQLite, bộ nhớ sở thích có cấu trúc, implicit-feedback từ manual override, cập nhật trạng thái qua SSE, bản sao số căn hộ một phòng ngủ, lớp phủ cảm biến và thiết bị, chọn ngữ cảnh hiện diện, bảng theo dõi 24 giờ, điều khiển có quy tắc bảo vệ và voice mode theo môi trường. Localhost dùng `MediaRecorder`, faster-whisper, VieNeu và Supertonic; bản Render dùng `SpeechRecognition` cho ASR và Piper `vi_VN-vais1000-medium` trên backend cho TTS tiếng Việt ổn định.
 
 Khi người dùng chỉnh thủ công đúng thuộc tính vừa được trợ lý thay đổi trong vòng 30 phút mô phỏng, backend lưu một evidence theo context hiện tại. Ba override có cùng target mới kích hoạt preference nguồn `learned`; một chỉnh sửa đơn lẻ chưa ảnh hưởng request sau.
 
 Thao tác không hợp lệ hoặc yêu cầu trợ lý thất bại không làm thay đổi trạng thái căn hộ. Khi chưa cấu hình `OPENAI_API_KEY`, mô phỏng, bảng theo dõi và điều khiển thủ công vẫn hoạt động; local speech endpoint vẫn có thể kiểm tra độc lập.
 
-Kết quả kiểm tra hiện tại: 46 phép kiểm thử phía máy chủ đạt, 1 phép kiểm thử phụ thuộc môi trường được bỏ qua; Ruff, kiểm tra miền dữ liệu giao diện, TypeScript và bản dựng sản xuất đều đạt.
+Kết quả kiểm tra hiện tại: 51 phép kiểm thử phía máy chủ đạt, 1 phép kiểm thử phụ thuộc môi trường được bỏ qua; Ruff, kiểm tra miền dữ liệu giao diện, TypeScript, bản dựng sản xuất và Docker smoke test đều đạt.
 
 ## Công nghệ
 
@@ -38,7 +38,7 @@ Kết quả kiểm tra hiện tại: 46 phép kiểm thử phía máy chủ đ�
 - Lưu trữ: SQLite bền vững trên máy cá nhân; filesystem tạm thời trên Render Free.
 - Dữ liệu: tệp CSV sinh tất định và kịch bản JSON.
 - Nhận dạng giọng nói: localhost dùng `MediaRecorder` + faster-whisper `small`; deployment dùng Web Speech `SpeechRecognition` với `vi-VN`.
-- Tổng hợp giọng nói: localhost dùng VieNeu v3 Turbo ONNX `int8` + Supertonic fallback; deployment dùng `speechSynthesis` với `vi-VN`.
+- Tổng hợp giọng nói: localhost dùng VieNeu v3 Turbo ONNX `int8` + Supertonic fallback; deployment dùng Piper `vi_VN-vais1000-medium` qua `/api/tts`.
 - Trợ lý: OpenAI Responses API với công cụ hàm có cấu trúc.
 - Triển khai: Docker và bản thiết kế Render.
 
@@ -56,6 +56,7 @@ Kết quả kiểm tra hiện tại: 46 phép kiểm thử phía máy chủ đ�
 - [Thiết kế mô phỏng](docs/simulation-design.md)
 - [Các giai đoạn triển khai](docs/phases.md)
 - [Hướng dẫn triển khai](docs/deployment.md)
+- [Thông báo giấy phép thành phần bên thứ ba](THIRD_PARTY_NOTICES.md)
 
 Đề xuất phần cứng ban đầu vẫn được giữ tại [plan.md](plan.md) để tham khảo. Phạm vi mô phỏng đã duyệt trong thư mục `docs/` được ưu tiên khi có nội dung khác nhau.
 
@@ -93,7 +94,7 @@ make smoke
 
 ## Triển khai toàn bộ trên Render
 
-`render.yaml` tạo một dịch vụ Docker trên Render Free. Next.js được build với `NEXT_PUBLIC_SPEECH_MODE=browser`; FastAPI được build không kèm dependency ASR/TTS và đặt `LOCAL_SPEECH_ENABLED=false`. `.dockerignore` chặn local virtualenv và `node_modules` khỏi build context. Voice chạy trong Chrome/Edge qua Web Speech API.
+`render.yaml` tạo một dịch vụ Docker trên Render Free. Next.js được build với `NEXT_PUBLIC_SPEECH_MODE=browser` cho ASR và `NEXT_PUBLIC_TTS_MODE=backend` cho TTS. FastAPI chỉ cài extra `piper`, bundle model medium đã ghim SHA-256, đặt `LOCAL_ASR_ENABLED=false` và trả WAV từ `/api/tts`. `.dockerignore` chặn local virtualenv và `node_modules` khỏi build context.
 
 ### Các bước triển khai
 
@@ -108,6 +109,6 @@ Render Free không có persistent disk. SQLite tại `/tmp/flatmate.db`, convers
 
 Service Free có thể spin down khi không hoạt động; request đầu sau đó chịu cold start.
 
-`SpeechRecognition` không được hỗ trợ đồng đều trên mọi trình duyệt. Text input luôn còn dùng được.
+`SpeechRecognition` không được hỗ trợ đồng đều trên mọi trình duyệt. Text input luôn còn dùng được; TTS không còn phụ thuộc voice cài trên browser/OS.
 
 Không đưa `OPENAI_API_KEY` vào mã nguồn, ảnh Docker hoặc biến môi trường giao diện. Khóa bí mật chỉ được nhập trong bảng điều khiển Render.

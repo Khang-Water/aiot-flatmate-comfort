@@ -41,9 +41,9 @@ permalink: /
 
 FlatMate Comfort là nguyên mẫu AIoT mô phỏng một căn hộ một phòng ngủ. Hệ thống kết hợp digital twin 3D, dữ liệu cảm biến sinh theo thời gian, trạng thái thiết bị, ngữ cảnh hiện diện và bộ nhớ sở thích để chuyển yêu cầu tiếng Việt thành tập giá trị điều khiển có cấu trúc. Người dùng có thể nhập văn bản, nói qua microphone hoặc điều khiển thiết bị trực tiếp. Trợ lý đọc `RoomSnapshot`, truy xuất preference phù hợp, gọi structured function tools, kiểm tra guardrail và chỉ cập nhật mô phỏng khi toàn bộ scene hợp lệ. Manual override sau một hành động của trợ lý còn được ghi thành implicit evidence; ba target giống nhau trong cùng context mới kích hoạt preference nguồn `learned`.
 
-Backend được xây dựng bằng FastAPI, Pydantic và SQLite. Simulation engine chạy xác định với seed cố định, duy trì lịch sử 24 giờ và phát trạng thái qua Server-Sent Events (SSE). Frontend Next.js sử dụng React Three Fiber để dựng căn hộ, nội thất, người dùng, sensor overlay, dashboard và conversation history. Speech có hai mode: localhost dùng faster-whisper `small` trên CPU `int8`, VieNeu-TTS v3 Turbo ONNX `int8` và Supertonic fallback; bản Render Free dùng `SpeechRecognition` cùng `speechSynthesis` của trình duyệt để không cài model speech trên máy chủ.
+Backend được xây dựng bằng FastAPI, Pydantic và SQLite. Simulation engine chạy xác định với seed cố định, duy trì lịch sử 24 giờ và phát trạng thái qua Server-Sent Events (SSE). Frontend Next.js sử dụng React Three Fiber để dựng căn hộ, nội thất, người dùng, sensor overlay, dashboard và conversation history. Speech có hai mode: localhost dùng faster-whisper `small` trên CPU `int8`, VieNeu-TTS v3 Turbo ONNX `int8` và Supertonic fallback; bản Render Free dùng `SpeechRecognition` cho ASR và Piper `vi_VN-vais1000-medium` trên backend cho TTS.
 
-Kết quả kiểm tra tại thời điểm báo cáo gồm 46 test backend đạt, 1 test bỏ qua theo điều kiện môi trường, Ruff đạt, TypeScript đạt và production build thành công. Dataset baseline có 1.440 mẫu cảm biến, tương ứng một mẫu mỗi phút trong 24 giờ. Một lần chạy end-to-end trên kịch bản `hot_room` đã chuyển trạng thái từ AC tắt ở 27°C và quạt tắt sang AC bật ở 25°C, quạt mức 1; cửa sổ giữ đóng. TTS local greedy tạo câu 2,80 giây với thời gian trung bình 2,99 giây qua ba lượt và cho cùng transcript khi kiểm tra vòng bằng ASR.
+Kết quả kiểm tra tại thời điểm báo cáo gồm 51 test backend đạt, 1 test bỏ qua theo điều kiện môi trường, Ruff đạt, TypeScript đạt, production build và Docker smoke test thành công. Dataset baseline có 1.440 mẫu cảm biến, tương ứng một mẫu mỗi phút trong 24 giờ. Một lần chạy end-to-end trên kịch bản `hot_room` đã chuyển trạng thái từ AC tắt ở 27°C và quạt tắt sang AC bật ở 25°C, quạt mức 1; cửa sổ giữ đóng. TTS local greedy tạo câu 2,80 giây với thời gian trung bình 2,99 giây qua ba lượt; container Piper bị giới hạn đúng 512 MB và 0,1 CPU tạo câu 3,855 giây trong 17,12 giây ở lượt lazy-load đầu, 1,49 giây ở lượt warm và dùng 254,3 MiB RSS cho toàn service.
 
 **Từ khóa:** AIoT, digital twin, smart apartment, personalization, LLM tool calling, context memory, sensor simulation, Vietnamese ASR, offline TTS.
 
@@ -114,7 +114,7 @@ Ví dụ output nội bộ:
 3. Cho phép trợ lý hiểu yêu cầu tiếng Việt và chọn structured tools thay vì backend phân loại bằng danh sách từ khóa.
 4. Giữ mọi thay đổi thiết bị trong miền hợp lệ và áp dụng nguyên tử.
 5. Cá nhân hóa bằng explicit preference, temporary preference, correction evidence và implicit feedback từ manual override.
-6. Hỗ trợ push-to-talk và TTS tiếng Việt bằng local model hoặc Web Speech API theo môi trường.
+6. Hỗ trợ push-to-talk và TTS tiếng Việt bằng local model hoặc Piper backend theo môi trường.
 7. Trình bày trạng thái, trace, lịch sử và kết quả mô phỏng trên website responsive.
 
 ### 1.4. Đóng góp chính
@@ -199,11 +199,11 @@ Mem0 cung cấp memory layer tổng quát với user/session/agent memory và re
 
 Nguồn chỉnh sửa: [`docs/figures/flatmate-system-architecture.drawio`](docs/figures/flatmate-system-architecture.drawio).
 
-Hình 1 mô tả local mode đầy đủ. Trên Render Free, hai khối ASR/TTS offline được thay bằng `SpeechRecognition` và `speechSynthesis` trong trình duyệt.
+Hình 1 mô tả local mode đầy đủ. Trên Render Free, ASR offline được thay bằng `SpeechRecognition`; TTS dùng Piper medium qua cùng endpoint `/api/tts`.
 
 ### 4.1. Lớp tương tác
 
-Frontend dùng Next.js 16, React 19, Three.js và React Three Fiber. Trang `/` hiển thị digital twin và assistant; `/dashboard` hiển thị metric, chart và manual controls; `/history` hiển thị conversation. `NEXT_PUBLIC_SPEECH_MODE=local` dùng `MediaRecorder`; mode `browser` dùng Web Speech API. `EventSource` nhận SSE ở cả hai mode.
+Frontend dùng Next.js 16, React 19, Three.js và React Three Fiber. Trang `/` hiển thị digital twin và assistant; `/dashboard` hiển thị metric, chart và manual controls; `/history` hiển thị conversation. `NEXT_PUBLIC_SPEECH_MODE` chọn `MediaRecorder` hoặc browser recognition; `NEXT_PUBLIC_TTS_MODE` chọn backend WAV hoặc browser synthesis. Render dùng browser ASR và backend TTS. `EventSource` nhận SSE ở cả hai mode.
 
 ### 4.2. Lớp dịch vụ
 
@@ -231,7 +231,7 @@ Scenario được định nghĩa bằng JSON. Dataset baseline được export s
 
 ### 4.5. Boundary cục bộ và cloud
 
-Simulation và SQLite chạy trong FastAPI. Localhost còn chạy ASR/TTS cục bộ; Render Free đặt `LOCAL_SPEECH_ENABLED=false`, bỏ optional dependency `speech`, và chuyển voice sang trình duyệt. LLM là dependency bên ngoài khi `OPENAI_API_KEY` được cấu hình. Audio gốc không đi qua assistant API; backend chỉ gửi text, trạng thái cần thiết và tool output. SQLite trên Render Free dùng filesystem tạm thời nên không bảo đảm giữ history hoặc preference qua deploy/restart.
+Simulation và SQLite chạy trong FastAPI. Localhost chạy ASR/TTS cục bộ; Render Free đặt `LOCAL_ASR_ENABLED=false`, cài riêng optional dependency `piper`, nhận transcript qua browser và tạo WAV trên backend. LLM là dependency bên ngoài khi `OPENAI_API_KEY` được cấu hình. Audio gốc từ microphone không đi qua assistant API trên Render; backend chỉ nhận transcript, gửi text, trạng thái cần thiết và tool output. SQLite trên Render Free dùng filesystem tạm thời nên không bảo đảm giữ history hoặc preference qua deploy/restart.
 
 ## 5. Digital twin căn hộ một phòng ngủ
 
@@ -430,7 +430,7 @@ Thiết kế hiện tại phù hợp demo vì typed target có thể validate b�
 
 ## 8. Xử lý giọng nói tiếng Việt
 
-Build mode quyết định provider. Localhost mặc định dùng backend offline để có model và vocabulary kiểm soát được. Docker deployment dùng Web Speech API để vừa giới hạn RAM/CPU vừa tránh tải hàng trăm MB model trên Render Free.
+Build mode quyết định riêng provider capture và provider TTS. Localhost mặc định dùng backend offline để có model và vocabulary kiểm soát được. Docker deployment dùng browser `SpeechRecognition` cho ASR và Piper medium trên backend cho TTS; cách tách này bỏ Whisper khỏi image nhưng vẫn bảo đảm giọng Việt không phụ thuộc browser/OS.
 
 ### 8.1. ASR
 
@@ -465,9 +465,11 @@ assistant response
 → WAV PCM 16-bit
 ```
 
+Render TTS pipeline dùng cùng bước cleanup, lexicon và VietNormalizer, sau đó chạy Piper `1.6.0` với voice `vi_VN-vais1000-medium`, ONNX một thread và WAV mono 22,05 kHz. Model 63,2 MB được bundle trong Docker image với SHA-256 cố định; request bị giới hạn 800 ký tự để bảo vệ CPU Free tier.
+
 VieNeu inference dùng `temperature=0`, `repetition_penalty=1.25`, `silence_p=0.08` và `crossfade_p=0.02`. Greedy decoding được chọn sau khi ba lượt tạo cùng một câu đều cho transcript vòng giống nhau. Nếu VieNeu initialization thất bại, lỗi được cache để không tải lại model ở mỗi request; wrapper chuyển sang Supertonic. Response header phản ánh engine và voice thực tế.
 
-Model assets cần tải ở lần local sử dụng đầu tiên. Sau khi cache hoàn tất, ASR và TTS inference chạy cục bộ. Browser mode không gọi `/api/asr` hoặc `/api/tts`; frontend tạo `SpeechSynthesisUtterance` với `lang="vi-VN"` và ưu tiên voice Việt có sẵn trên browser/OS.
+Model VieNeu, Supertonic và faster-whisper cần tải ở lần local sử dụng đầu tiên. Render không gọi `/api/asr`; frontend dùng `SpeechRecognition` với `lang="vi-VN"`, nhưng luôn gọi `/api/tts` để nhận Piper WAV. Browser synthesis chỉ còn là mode fallback tùy chọn.
 
 ## 9. Phân tích mã nguồn
 
@@ -494,7 +496,7 @@ Số dòng chỉ mô tả snapshot repository, không dùng làm chỉ số ch�
 | `storage.py` | SQLite schema, history, conversation, preference lifecycle và implicit promotion |
 | `state.py` | Ordered in-process event broker |
 | `asr.py` | Lazy faster-whisper inference |
-| `tts.py` | Text preparation, VieNeu primary, Supertonic fallback |
+| `tts.py` | Text preparation, VieNeu/Supertonic local TTS và Piper deployment TTS |
 | `tts_lexicon.py` | Cách đọc thuật ngữ và đơn vị chuyên ngành |
 
 ### 9.3. Frontend modules
@@ -504,13 +506,13 @@ Số dòng chỉ mô tả snapshot repository, không dùng làm chỉ số ch�
 | `apartment-canvas.tsx` | Floor plan, walls, openings, furniture, resident và sensor/device overlay |
 | `assistant-panel.tsx` | Input, trace, voice state và final response |
 | `use-flatmate.ts` | Fetch state, SSE reconnect, scenario và command orchestration |
-| `use-browser-voice.ts` | Chọn local/browser speech, MediaRecorder, Web Speech, TTS playback và wake mode |
+| `use-browser-voice.ts` | Chọn riêng capture/TTS provider, MediaRecorder, Web Speech, backend WAV và wake mode |
 | `history-chart.tsx` | Biểu đồ 24 giờ và hover detail |
 | `device-controls.tsx` | Manual device command và nguồn implicit override |
 
 ### 9.4. API surface
 
-API gồm health/state, simulation, scenario, device command, assistant, ASR/TTS, conversation, preference, history và SSE. Unknown fields bị từ chối; audio payload giới hạn 15 MB; history bị clamp ở 24 giờ mới nhất. ASR/TTS endpoint trả `503` khi `LOCAL_SPEECH_ENABLED=false`.
+API gồm health/state, simulation, scenario, device command, assistant, ASR/TTS, conversation, preference, history và SSE. Unknown fields bị từ chối; audio payload giới hạn 15 MB; history bị clamp ở 24 giờ mới nhất. `LOCAL_ASR_ENABLED` có thể tắt ASR độc lập; TTS trả `503` khi engine/model không khả dụng và `422` khi vượt giới hạn runtime.
 
 ## 10. Demonstration, logs và numerical results
 
@@ -562,18 +564,38 @@ X-TTS-Engine: vieneu-v3-turbo-onnx-int8
 X-TTS-Voice: Mai Anh
 ```
 
+Docker smoke test cho cấu hình Render dùng Piper medium:
+
+| Chỉ số | Kết quả |
+| --- | ---: |
+| Model | 63,2 MB |
+| Full-service RSS sau synth | 254,3 MiB |
+| Request lazy-load đầu | 17,12 s |
+| Request warm | 1,49 s |
+| Audio đầu ra | 3,855 s, WAV mono PCM 16-bit, 22,05 kHz |
+
+Header thực tế:
+
+```text
+X-Audio-Duration: 3.855
+X-TTS-Engine: piper-1.6.0-onnx-cpu
+X-TTS-Voice: vi_VN-vais1000-medium
+```
+
+Container benchmark bị giới hạn bằng `--memory=512m --cpus=0.1`, không OOM. Render vẫn có thêm thời gian spin-up hạ tầng ngoài phép đo này.
+
 ### 10.4. Kiểm thử
 
 | Kiểm tra | Kết quả |
 | --- | --- |
-| Pytest | 46 passed, 1 skipped |
+| Pytest | 51 passed, 1 skipped |
 | Ruff | All checks passed |
 | Frontend domain checks | geometry, voice, trace, privacy, accessibility passed |
 | TypeScript | `tsc --noEmit` passed |
 | Next.js production build | compiled và prerendered thành công |
 | Draw.io architecture validation | 0 error; 2 edge-crossing warnings, không có edge đi qua node |
 
-Test bao phủ contract, scenario loading, deterministic reset, history clamp, atomic command, assistant tool loop, preference lifecycle, session isolation, implicit candidate gating và promotion sau ba manual override, TTS text normalization, fallback, VieNeu initialization failure cache và trạng thái local speech bị tắt trong deployment.
+Test bao phủ contract, scenario loading, deterministic reset, history clamp, atomic command, assistant tool loop, preference lifecycle, session isolation, implicit candidate gating và promotion sau ba manual override, TTS text normalization, fallback, VieNeu/Piper initialization failure cache, Piper WAV contract và giới hạn text runtime.
 
 ## 11. Đánh giá
 
@@ -637,8 +659,10 @@ make smoke
 ### 12.2. Cấu hình speech mặc định
 
 ```text
-LOCAL_SPEECH_ENABLED=true
+TTS_ENABLED=true
+LOCAL_ASR_ENABLED=true
 NEXT_PUBLIC_SPEECH_MODE=local
+NEXT_PUBLIC_TTS_MODE=backend
 
 ASR_MODEL=small
 ASR_DEVICE=cpu
@@ -646,15 +670,18 @@ ASR_COMPUTE_TYPE=int8
 ASR_BEAM_SIZE=2
 
 TTS_ENGINE=vieneu
+TTS_MAX_CHARACTERS=2000
 VIENEU_VOICE=Mai Anh
 SUPERTONIC_VOICE=F4
 SUPERTONIC_STEPS=12
 SUPERTONIC_SPEED=1.0
+PIPER_MODEL_PATH=./models/vi_VN-vais1000-medium.onnx
+PIPER_VOICE=vi_VN-vais1000-medium
 ```
 
 ### 12.3. Triển khai Render Free
 
-Docker build frontend với `NEXT_PUBLIC_SPEECH_MODE=browser`, cài backend không có extra `speech`, và đặt `LOCAL_SPEECH_ENABLED=false`. `render.yaml` dùng gói `free`; browser Chrome/Edge thực hiện recognition/synthesis trên HTTPS. SQLite đặt tại `/tmp/flatmate.db`, vì vậy history, conversation và learned preference không bền qua deploy hoặc restart. Khi cần persistence hoặc local speech trên server, phải dùng paid instance cùng persistent disk và cài extra `speech`.
+Docker build frontend với `NEXT_PUBLIC_SPEECH_MODE=browser` và `NEXT_PUBLIC_TTS_MODE=backend`, cài backend chỉ với extra `piper`, bật backend TTS và đặt `LOCAL_ASR_ENABLED=false`. Model `vi_VN-vais1000-medium` được bundle và kiểm SHA-256. `render.yaml` dùng gói `free`; Chrome/Edge thực hiện recognition trên HTTPS, còn FastAPI trả Piper WAV. SQLite đặt tại `/tmp/flatmate.db`, vì vậy history, conversation và learned preference không bền qua deploy hoặc restart. Khi cần persistence hoặc throughput speech cao hơn, dùng paid instance cùng persistent disk/CPU phù hợp.
 
 ## 13. Hướng phát triển
 
@@ -670,7 +697,7 @@ Docker build frontend với `NEXT_PUBLIC_SPEECH_MODE=browser`, cài backend khô
 
 ## 14. Kết luận
 
-FlatMate Comfort chứng minh một kiến trúc AIoT cá nhân hóa có thể kiểm chứng trong môi trường không có phần cứng thật. Digital twin tạo ngữ cảnh không gian và trạng thái; simulation engine cung cấp sensor data có thể tái lập; LLM chuyển ngôn ngữ tự nhiên thành structured targets; guardrail giữ quyền kiểm soát miền thiết bị; preference store kết hợp explicit memory, conversational correction và implicit manual override có evidence; local model hoặc Web Speech API cung cấp interaction tiếng Việt theo tài nguyên triển khai.
+FlatMate Comfort chứng minh một kiến trúc AIoT cá nhân hóa có thể kiểm chứng trong môi trường không có phần cứng thật. Digital twin tạo ngữ cảnh không gian và trạng thái; simulation engine cung cấp sensor data có thể tái lập; LLM chuyển ngôn ngữ tự nhiên thành structured targets; guardrail giữ quyền kiểm soát miền thiết bị; preference store kết hợp explicit memory, conversational correction và implicit manual override có evidence; local model, browser ASR và Piper backend cung cấp interaction tiếng Việt theo tài nguyên triển khai.
 
 Giá trị chính của đề tài không nằm ở việc để LLM điều khiển trực tiếp thiết bị, mà ở việc phân tách rõ ba trách nhiệm: model hiểu yêu cầu, backend kiểm tra action, simulation/device layer thi hành state transition. Cấu trúc này tạo đường nâng cấp hợp lý từ demo digital twin sang hệ thống có MQTT hoặc Home Assistant adapter mà không phải thay đổi contract và guardrail cốt lõi.
 
@@ -705,3 +732,7 @@ Giá trị chính của đề tài không nằm ở việc để LLM điều khi
 [14] SQLite Consortium, “SQLite Documentation.” <https://www.sqlite.org/docs.html>. Truy cập 02/08/2026.
 
 [15] WHATWG, “Server-sent events,” HTML Living Standard. <https://html.spec.whatwg.org/multipage/server-sent-events.html>. Truy cập 02/08/2026.
+
+[16] Open Home Foundation, “Piper — fast local neural text-to-speech.” <https://github.com/OHF-Voice/piper1-gpl>, <https://huggingface.co/rhasspy/piper-voices>. Phiên bản runtime `1.6.0`, voice `vi_VN-vais1000-medium`. Truy cập 09/08/2026.
+
+Piper runtime dùng GPL-3.0. Repository voice dùng MIT; model card ghi dataset VAIS-1000 theo CC BY 4.0. Attribution phân phối kèm tại `THIRD_PARTY_NOTICES.md`.

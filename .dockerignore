@@ -1,5 +1,8 @@
 *
 !Dockerfile
+!THIRD_PARTY_NOTICES.md
+!scripts/
+!scripts/fetch_piper_voice.py
 !backend/
 !backend/app/
 !backend/app/**
