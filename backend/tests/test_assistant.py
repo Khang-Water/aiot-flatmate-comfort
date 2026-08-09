@@ -7,7 +7,7 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
-from app.assistant import TOOLS, AssistantOrchestrator
+from app.assistant import PROVIDER_TOOLS, TOOLS, AssistantOrchestrator
 from app.models import AssistantRequest, PreferenceCreate, PreferenceTargets
 from app.scenarios import ScenarioRepository
 from app.simulation import SimulationEngine
@@ -107,6 +107,28 @@ def test_openai_function_tool_schemas_are_valid_json_schema() -> None:
     for tool in TOOLS:
         Draft202012Validator.check_schema(tool["parameters"])
         assert tool["strict"] is True
+
+
+def test_provider_tool_schemas_use_gemini_compatible_subset() -> None:
+    def check(schema: dict[str, Any]) -> None:
+        assert schema.get("additionalProperties") is None
+        assert not isinstance(schema.get("type"), list)
+        assert None not in schema.get("enum", [])
+        for value in schema.values():
+            if isinstance(value, dict):
+                check(value)
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict):
+                        check(item)
+
+    for tool in PROVIDER_TOOLS:
+        assert "strict" not in tool
+        Draft202012Validator.check_schema(tool["parameters"])
+        check(tool["parameters"])
+
+    scene = next(tool for tool in PROVIDER_TOOLS if tool["name"] == "set_room_scene")
+    assert scene["parameters"]["required"] == ["change_mode", "reason"]
 
 
 def test_tool_loop_commits_scene_after_final_response(tmp_path: Path) -> None:
@@ -350,7 +372,6 @@ def test_assistant_can_save_explicit_preference(tmp_path: Path) -> None:
                 "context": "working",
                 "requested_intent": "độ sáng khi làm việc",
                 "source": "explicit",
-                "duration_hours": None,
                 "preferred_result": preference_targets(
                     main_light_power=True,
                     main_light_brightness_percent=70,

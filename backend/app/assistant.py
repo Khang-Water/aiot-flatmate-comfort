@@ -211,6 +211,45 @@ TOOLS: list[dict[str, Any]] = [
     },
 ]
 
+
+def _compatible_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    properties = schema.get("properties", {})
+    nullable = {
+        name
+        for name, value in properties.items()
+        if isinstance(value.get("type"), list) and "null" in value["type"]
+    }
+    compatible: dict[str, Any] = {}
+    for key, value in schema.items():
+        if key == "additionalProperties":
+            continue
+        if key == "type" and isinstance(value, list):
+            types = [item for item in value if item != "null"]
+            value = types[0] if len(types) == 1 else types
+        elif key == "enum" and isinstance(value, list):
+            value = [item for item in value if item is not None]
+        elif key == "required" and isinstance(value, list):
+            value = [item for item in value if item not in nullable]
+            if not value:
+                continue
+        elif isinstance(value, dict):
+            value = _compatible_schema(value)
+        elif isinstance(value, list):
+            value = [_compatible_schema(item) if isinstance(item, dict) else item for item in value]
+        compatible[key] = value
+    return compatible
+
+
+# ponytail: shared Gemini-compatible schema; route schemas per provider if strict validation becomes necessary.
+PROVIDER_TOOLS = [
+    {
+        key: _compatible_schema(value) if key == "parameters" else value
+        for key, value in tool.items()
+        if key != "strict"
+    }
+    for tool in TOOLS
+]
+
 INSTRUCTIONS = """
 Bạn là FlatMate Comfort, trợ lý cho một căn hộ studio mô phỏng.
 
@@ -432,7 +471,7 @@ class AssistantOrchestrator:
                         model=self.model,
                         instructions=INSTRUCTIONS,
                         input=input_items,
-                        tools=TOOLS,
+                        tools=PROVIDER_TOOLS,
                         reasoning={"effort": self.reasoning_effort},
                         text={"verbosity": "low"},
                         store=False,
@@ -487,7 +526,7 @@ class AssistantOrchestrator:
                         )
                     elif item.name == "save_preference":
                         source = arguments["source"]
-                        duration = arguments["duration_hours"]
+                        duration = arguments.get("duration_hours")
                         if source == "temporary" and duration is None:
                             tool_output = {"ok": False, "error": "temporary cần duration_hours"}
                         else:
