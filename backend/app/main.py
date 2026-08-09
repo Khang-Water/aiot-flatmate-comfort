@@ -68,6 +68,7 @@ openai_client = (
 assistant = AssistantOrchestrator(
     client=openai_client,
     model=settings.openai_model,
+    api_mode=settings.openai_api_mode,
     reasoning_effort=settings.openai_reasoning_effort,
     timeout_seconds=settings.openai_timeout_seconds,
     engine=engine,

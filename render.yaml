@@ -15,6 +15,8 @@ services:
         sync: false
       - key: OPENAI_MODEL
         sync: false
+      - key: OPENAI_API_MODE
+        value: chat_completions
       - key: OPENAI_REASONING_EFFORT
         value: low
       - key: OPENAI_TIMEOUT_SECONDS

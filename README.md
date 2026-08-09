@@ -100,6 +100,7 @@ make smoke
 1. Mở [trang tạo Render Blueprint](https://render.com/deploy?repo=https://github.com/Khang-Water/aiot-flatmate-comfort).
 2. Đăng nhập Render và kết nối kho mã GitHub.
 3. Nhập `OPENAI_API_KEY`, `OPENAI_BASE_URL` và `OPENAI_MODEL` theo cấu hình đang hoạt động. Nếu dùng OpenAI trực tiếp, có thể để trống `OPENAI_BASE_URL`.
+   Blueprint dùng `OPENAI_API_MODE=chat_completions`; localhost mặc định dùng Responses API.
 4. Xác nhận bản thiết kế và chờ ảnh Docker được dựng.
 5. Mở URL Render được cấp; điểm kiểm tra trạng thái nằm tại `/api/health`, tài liệu OpenAPI tại `/docs`.
 

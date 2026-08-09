@@ -249,6 +249,13 @@ PROVIDER_TOOLS = [
     }
     for tool in TOOLS
 ]
+CHAT_TOOLS = [
+    {
+        "type": "function",
+        "function": {key: value for key, value in tool.items() if key != "type"},
+    }
+    for tool in PROVIDER_TOOLS
+]
 
 INSTRUCTIONS = """
 Bạn là FlatMate Comfort, trợ lý cho một căn hộ studio mô phỏng.
@@ -309,6 +316,7 @@ class AssistantOrchestrator:
         *,
         client: AsyncOpenAI | Any | None,
         model: str,
+        api_mode: str = "responses",
         reasoning_effort: str,
         timeout_seconds: float,
         engine: SimulationEngine,
@@ -317,6 +325,7 @@ class AssistantOrchestrator:
     ) -> None:
         self.client = client
         self.model = model
+        self.api_mode = api_mode
         self.reasoning_effort = reasoning_effort
         self.timeout_seconds = timeout_seconds
         self.engine = engine
@@ -455,6 +464,7 @@ class AssistantOrchestrator:
                     ),
                 }
             )
+            chat_messages = [{"role": "system", "content": INSTRUCTIONS}, *input_items]
             pending_scene: RoomSceneTargets | None = None
             applied_preference_id: str | None = None
 
@@ -466,22 +476,70 @@ class AssistantOrchestrator:
                     "Đang hỏi mô hình",
                     data={"model": self.model, "loop": loop_index + 1},
                 )
-                response = await asyncio.wait_for(
-                    self.client.responses.create(
-                        model=self.model,
-                        instructions=INSTRUCTIONS,
-                        input=input_items,
-                        tools=PROVIDER_TOOLS,
-                        reasoning={"effort": self.reasoning_effort},
-                        text={"verbosity": "low"},
-                        store=False,
-                    ),
-                    timeout=self.timeout_seconds,
-                )
+                if self.api_mode == "chat_completions":
+                    response = await asyncio.wait_for(
+                        self.client.chat.completions.create(
+                            model=self.model,
+                            messages=chat_messages,
+                            tools=CHAT_TOOLS,
+                            max_tokens=600,
+                        ),
+                        timeout=self.timeout_seconds,
+                    )
+                    message = response.choices[0].message
+                    raw_function_calls = list(message.tool_calls or [])
+                    function_calls = [
+                        {
+                            "name": item.function.name,
+                            "arguments": item.function.arguments,
+                            "call_id": item.id,
+                        }
+                        for item in raw_function_calls
+                    ]
+                    assistant_message: dict[str, Any] = {
+                        "role": "assistant",
+                        "content": message.content,
+                    }
+                    if raw_function_calls:
+                        assistant_message["tool_calls"] = [
+                            {
+                                "id": item.id,
+                                "type": "function",
+                                "function": {
+                                    "name": item.function.name,
+                                    "arguments": item.function.arguments,
+                                },
+                            }
+                            for item in raw_function_calls
+                        ]
+                    chat_messages.append(assistant_message)
+                    model_text = message.content or ""
+                else:
+                    response = await asyncio.wait_for(
+                        self.client.responses.create(
+                            model=self.model,
+                            instructions=INSTRUCTIONS,
+                            input=input_items,
+                            tools=PROVIDER_TOOLS,
+                            reasoning={"effort": self.reasoning_effort},
+                            text={"verbosity": "low"},
+                            store=False,
+                        ),
+                        timeout=self.timeout_seconds,
+                    )
+                    output_items = list(response.output)
+                    input_items.extend(output_items)
+                    function_calls = [
+                        {
+                            "name": item.name,
+                            "arguments": item.arguments,
+                            "call_id": item.call_id,
+                        }
+                        for item in output_items
+                        if item.type == "function_call"
+                    ]
+                    model_text = response.output_text
                 duration_ms = round((perf_counter() - started) * 1_000)
-                output_items = list(response.output)
-                input_items.extend(output_items)
-                function_calls = [item for item in output_items if item.type == "function_call"]
                 await trace(
                     "model_requested",
                     "completed",
@@ -491,27 +549,27 @@ class AssistantOrchestrator:
                 )
 
                 if not function_calls:
-                    assistant_text = response.output_text.strip()
+                    assistant_text = model_text.strip()
                     if not assistant_text:
                         raise AssistantWorkflowError("Mô hình không trả về phản hồi cuối.")
                     break
 
                 for item in function_calls:
-                    arguments = json.loads(item.arguments)
+                    arguments = json.loads(item["arguments"])
                     await trace(
                         "tool_requested",
                         "completed",
-                        f"Mô hình gọi {item.name}",
-                        data={"tool": item.name, "arguments": arguments},
+                        f"Mô hình gọi {item['name']}",
+                        data={"tool": item["name"], "arguments": arguments},
                     )
                     tool_output: dict[str, Any]
-                    if item.name == "get_room_snapshot":
+                    if item["name"] == "get_room_snapshot":
                         current = await self.engine.snapshot()
                         tool_output = assistant_snapshot(current)
-                    elif item.name == "get_recent_actions":
+                    elif item["name"] == "get_recent_actions":
                         limit = max(1, min(20, int(arguments["limit"])))
                         tool_output = {"actions": self.storage.recent_actions(limit)}
-                    elif item.name == "get_relevant_preferences":
+                    elif item["name"] == "get_relevant_preferences":
                         relevant_preferences = self.storage.relevant_preferences(arguments["context"], now)
                         preference_lookup_done = True
                         tool_output = {
@@ -524,7 +582,7 @@ class AssistantOrchestrator:
                             summary=f"Context {arguments['context']}: {len(relevant_preferences)} preference.",
                             data=tool_output,
                         )
-                    elif item.name == "save_preference":
+                    elif item["name"] == "save_preference":
                         source = arguments["source"]
                         duration = arguments.get("duration_hours")
                         if source == "temporary" and duration is None:
@@ -549,7 +607,7 @@ class AssistantOrchestrator:
                                 summary=preference.requested_intent,
                                 data=tool_output,
                             )
-                    elif item.name == "record_preference_correction":
+                    elif item["name"] == "record_preference_correction":
                         preference = self.storage.record_preference_correction(
                             request_id=request_id,
                             session_id=request.session_id,
@@ -567,7 +625,7 @@ class AssistantOrchestrator:
                             summary="Preference học được đã được lưu và có hiệu lực.",
                             data=tool_output,
                         )
-                    elif item.name == "set_room_scene":
+                    elif item["name"] == "set_room_scene":
                         if pending_scene is not None:
                             tool_output = {"ok": False, "error": "Chỉ được đề xuất một scene mỗi yêu cầu."}
                         elif not preference_lookup_done:
@@ -612,15 +670,21 @@ class AssistantOrchestrator:
                                     data=details,
                                 )
                     else:
-                        tool_output = {"ok": False, "error": f"Unknown tool: {item.name}"}
+                        tool_output = {"ok": False, "error": f"Unknown tool: {item['name']}"}
 
-                    input_items.append(
-                        {
-                            "type": "function_call_output",
-                            "call_id": item.call_id,
-                            "output": json.dumps(tool_output, ensure_ascii=False),
-                        }
-                    )
+                    output = json.dumps(tool_output, ensure_ascii=False)
+                    if self.api_mode == "chat_completions":
+                        chat_messages.append(
+                            {"role": "tool", "tool_call_id": item["call_id"], "content": output}
+                        )
+                    else:
+                        input_items.append(
+                            {
+                                "type": "function_call_output",
+                                "call_id": item["call_id"],
+                                "output": output,
+                            }
+                        )
             else:
                 raise AssistantWorkflowError("Vượt quá số vòng gọi công cụ cho phép.")
 

@@ -33,6 +33,21 @@ class FakeClient:
         self.responses = FakeResponses(responses)
 
 
+class FakeChatCompletions:
+    def __init__(self, responses: list[Any]) -> None:
+        self.responses = responses
+        self.calls: list[dict[str, Any]] = []
+
+    async def create(self, **kwargs: Any) -> Any:
+        self.calls.append(kwargs)
+        return self.responses.pop(0)
+
+
+class FakeChatClient:
+    def __init__(self, responses: list[Any]) -> None:
+        self.chat = SimpleNamespace(completions=FakeChatCompletions(responses))
+
+
 def tool_call(name: str, arguments: dict[str, Any], call_id: str) -> Any:
     return SimpleNamespace(
         type="function_call",
@@ -44,6 +59,18 @@ def tool_call(name: str, arguments: dict[str, Any], call_id: str) -> Any:
 
 def response(*items: Any, text: str = "") -> Any:
     return SimpleNamespace(output=list(items), output_text=text)
+
+
+def chat_tool_call(name: str, arguments: dict[str, Any], call_id: str) -> Any:
+    return SimpleNamespace(
+        id=call_id,
+        function=SimpleNamespace(name=name, arguments=json.dumps(arguments)),
+    )
+
+
+def chat_response(*calls: Any, text: str | None = None) -> Any:
+    message = SimpleNamespace(content=text, tool_calls=list(calls))
+    return SimpleNamespace(choices=[SimpleNamespace(message=message)])
 
 
 def scene_arguments(ac_temperature_c: float = 25, change_mode: str = "explicit") -> dict[str, Any]:
@@ -77,7 +104,8 @@ def preference_targets(**values: Any) -> dict[str, Any]:
 
 def build_orchestrator(
     tmp_path: Path,
-    fake_client: FakeClient,
+    fake_client: Any,
+    api_mode: str = "responses",
 ) -> tuple[AssistantOrchestrator, SimulationEngine, Storage]:
     storage = Storage(tmp_path / "assistant.db")
     storage.initialize()
@@ -94,6 +122,7 @@ def build_orchestrator(
     orchestrator = AssistantOrchestrator(
         client=fake_client,
         model="test-model",
+        api_mode=api_mode,
         reasoning_effort="low",
         timeout_seconds=2,
         engine=engine,
@@ -101,6 +130,31 @@ def build_orchestrator(
         broker=broker,
     )
     return orchestrator, engine, storage
+
+
+def test_chat_completions_tool_loop_returns_final_response(tmp_path: Path) -> None:
+    async def run() -> None:
+        client = FakeChatClient([
+            chat_response(chat_tool_call("get_room_snapshot", {}, "call-1")),
+            chat_response(text="Nhiệt độ phòng hiện tại là 26.5°C."),
+        ])
+        orchestrator, _, storage = build_orchestrator(tmp_path, client, "chat_completions")
+
+        await orchestrator.submit(
+            AssistantRequest(text="Nhiệt độ phòng hiện tại là bao nhiêu?", session_id="test")
+        )
+        await orchestrator.wait_idle()
+
+        conversation = storage.conversations(1)[0]
+        assert conversation.status == "completed"
+        assert conversation.assistant_text == "Nhiệt độ phòng hiện tại là 26.5°C."
+        first_call = client.chat.completions.calls[0]
+        second_call = client.chat.completions.calls[1]
+        assert first_call["messages"][0]["role"] == "system"
+        assert first_call["tools"][0]["function"]["name"] == "get_relevant_preferences"
+        assert any(item["role"] == "tool" for item in second_call["messages"])
+
+    asyncio.run(run())
 
 
 def test_openai_function_tool_schemas_are_valid_json_schema() -> None:

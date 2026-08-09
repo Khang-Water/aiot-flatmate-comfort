@@ -4,6 +4,7 @@ from app.config import Settings
 def test_default_speech_models_are_cpu_friendly_and_high_quality() -> None:
     settings = Settings(_env_file=None)
 
+    assert settings.openai_api_mode == "responses"
     assert settings.local_speech_enabled is True
     assert settings.asr_model == "small"
     assert settings.asr_device == "cpu"

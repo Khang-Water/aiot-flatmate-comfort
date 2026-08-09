@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_base_url: str | None = None
     openai_model: str = "gpt-5.6-sol"
+    openai_api_mode: Literal["responses", "chat_completions"] = "responses"
     openai_reasoning_effort: str = "low"
     openai_timeout_seconds: float = Field(default=45, gt=0, le=180)
     local_speech_enabled: bool = True

@@ -24,6 +24,7 @@ OPENAI_MODEL
 ```
 
 Nếu dùng OpenAI trực tiếp, có thể để trống `OPENAI_BASE_URL`. `OPENAI_MODEL` phải là model mà API key hiện tại có quyền sử dụng.
+Blueprint đặt `OPENAI_API_MODE=chat_completions` để tương thích gateway Vilao/Gemini. Localhost giữ mặc định `responses` cho 9Router.
 
 ## Tài nguyên
 
