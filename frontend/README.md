@@ -16,4 +16,7 @@ src/
 └── types/               room and simulation API mirrors
 ```
 
-Run from repository root with `make web`. Phase 5 adds browser wake-word, Vietnamese speech capture, and speech synthesis.
+Run from repository root with `make web`.
+
+- `NEXT_PUBLIC_SPEECH_MODE=local`: default localhost mode; uploads `MediaRecorder` audio to `/api/asr` and requests WAV from `/api/tts`.
+- `NEXT_PUBLIC_SPEECH_MODE=browser`: deployment mode; uses `SpeechRecognition` and `speechSynthesis` with `vi-VN`, keeping speech models off server.

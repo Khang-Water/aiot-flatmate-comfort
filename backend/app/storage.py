@@ -2,7 +2,7 @@ import csv
 import json
 import sqlite3
 from collections.abc import Iterable
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -31,6 +31,77 @@ METRICS: dict[str, tuple[str, str]] = {
     "main_light_brightness_percent": ("main_light_brightness_percent", "%"),
     "curtain_position_percent": ("curtain_position_percent", "%"),
     "air_purifier_speed": ("air_purifier_speed", "level"),
+}
+
+IMPLICIT_FEEDBACK_WINDOW = timedelta(minutes=30)
+IMPLICIT_PROMOTION_OBSERVATIONS = 3
+IMPLICIT_PREFERENCE_FIELDS: dict[tuple[str, str], tuple[str, str, str]] = {
+    ("ac", "power"): ("devices.ac.power", "ac_power", "trạng thái điều hòa"),
+    ("ac", "temperature_c"): ("devices.ac.temperature_c", "ac_temperature_c", "nhiệt độ điều hòa"),
+    ("fan", "power"): ("devices.fan.power", "fan_power", "trạng thái quạt"),
+    ("fan", "speed"): ("devices.fan.speed", "fan_speed", "tốc độ quạt"),
+    ("main_light", "power"): ("devices.main_light.power", "main_light_power", "trạng thái đèn chính"),
+    ("main_light", "brightness_percent"): (
+        "devices.main_light.brightness_percent",
+        "main_light_brightness_percent",
+        "độ sáng đèn chính",
+    ),
+    ("main_light", "color_temperature_kelvin"): (
+        "devices.main_light.color_temperature_kelvin",
+        "main_light_color_temperature_kelvin",
+        "màu ánh sáng đèn chính",
+    ),
+    ("bedside_light", "power"): (
+        "devices.bedside_light.power",
+        "bedside_light_power",
+        "trạng thái đèn đầu giường",
+    ),
+    ("bedside_light", "brightness_percent"): (
+        "devices.bedside_light.brightness_percent",
+        "bedside_light_brightness_percent",
+        "độ sáng đèn đầu giường",
+    ),
+    ("bedside_light", "color_temperature_kelvin"): (
+        "devices.bedside_light.color_temperature_kelvin",
+        "bedside_light_color_temperature_kelvin",
+        "màu ánh sáng đèn đầu giường",
+    ),
+    ("air_purifier", "power"): (
+        "devices.air_purifier.power",
+        "air_purifier_power",
+        "trạng thái máy lọc không khí",
+    ),
+    ("air_purifier", "speed"): (
+        "devices.air_purifier.speed",
+        "air_purifier_speed",
+        "tốc độ máy lọc không khí",
+    ),
+    ("curtain", "position_percent"): (
+        "devices.curtain.position_percent",
+        "curtain_position_percent",
+        "độ mở rèm",
+    ),
+    ("window", "state"): ("openings.window_state", "window_state", "trạng thái cửa sổ"),
+    ("humidity_device", "power"): (
+        "devices.humidity_device.power",
+        "humidity_device_power",
+        "trạng thái thiết bị độ ẩm",
+    ),
+    ("humidity_device", "target_humidity_percent"): (
+        "devices.humidity_device.target_humidity_percent",
+        "target_humidity_percent",
+        "mức độ ẩm mục tiêu",
+    ),
+    ("desk_computer", "state"): (
+        "power.smart_plugs.desk_computer.state",
+        "desk_computer_power",
+        "trạng thái máy tính bàn",
+    ),
+    ("monitor", "state"): (
+        "power.smart_plugs.monitor.state",
+        "monitor_power",
+        "trạng thái màn hình",
+    ),
 }
 
 SENSOR_COLUMNS = [
@@ -238,6 +309,143 @@ class Storage:
                     for change in changes
                 ),
             )
+
+    def record_implicit_feedback(
+        self,
+        *,
+        command_id: str,
+        timestamp: datetime,
+        context: str,
+        device_id: str,
+        supplied_values: dict[str, Any],
+        changes: list[ChangedValue],
+    ) -> list[PreferenceRecord]:
+        changes_by_path = {change.path: change for change in changes}
+        learned_ids: list[str] = []
+        cutoff = (timestamp - IMPLICIT_FEEDBACK_WINDOW).isoformat()
+        observed_at = timestamp.isoformat()
+
+        with self.connect() as connection:
+            for supplied_field in supplied_values:
+                mapping = IMPLICIT_PREFERENCE_FIELDS.get((device_id, supplied_field))
+                if mapping is None:
+                    continue
+                property_path, target_field, requested_intent = mapping
+                change = changes_by_path.get(property_path)
+                if change is None:
+                    continue
+
+                previous = connection.execute(
+                    """
+                    SELECT command_id, source, after_json
+                    FROM device_actions
+                    WHERE property = ?
+                      AND command_id != ?
+                      AND timestamp >= ?
+                      AND timestamp <= ?
+                    ORDER BY id DESC
+                    LIMIT 1
+                    """,
+                    (property_path, command_id, cutoff, observed_at),
+                ).fetchone()
+                if previous is None or previous["source"] != "assistant":
+                    continue
+                if json.loads(previous["after_json"]) != change.before:
+                    continue
+
+                preferred_value = change.after
+                if target_field in {"desk_computer_power", "monitor_power"}:
+                    preferred_value = preferred_value == "on"
+                preferred_result = PreferenceTargets.model_validate({target_field: preferred_value})
+                preferred_result_json = preferred_result.model_dump_json(exclude_none=True)
+
+                candidate = connection.execute(
+                    """
+                    SELECT id, observation_count
+                    FROM preferences
+                    WHERE context = ?
+                      AND requested_intent = ?
+                      AND preferred_result_json = ?
+                      AND source = 'learned'
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                    """,
+                    (context, requested_intent, preferred_result_json),
+                ).fetchone()
+                observation_count = int(candidate["observation_count"]) + 1 if candidate else 1
+                confirmed = observation_count >= IMPLICIT_PROMOTION_OBSERVATIONS
+                confidence = min(0.98, observation_count / IMPLICIT_PROMOTION_OBSERVATIONS)
+
+                if candidate is None:
+                    preference_id = str(uuid4())
+                    connection.execute(
+                        """
+                        INSERT INTO preferences (
+                            id, context, requested_intent, preferred_result_json, source,
+                            confidence, observation_count, confirmed, expires_at,
+                            created_at, updated_at, last_used_at
+                        ) VALUES (?, ?, ?, ?, 'learned', ?, ?, ?, NULL, ?, ?, NULL)
+                        """,
+                        (
+                            preference_id,
+                            context,
+                            requested_intent,
+                            preferred_result_json,
+                            confidence,
+                            observation_count,
+                            int(confirmed),
+                            observed_at,
+                            observed_at,
+                        ),
+                    )
+                else:
+                    preference_id = candidate["id"]
+                    connection.execute(
+                        """
+                        UPDATE preferences
+                        SET confidence = ?, observation_count = ?, confirmed = ?, updated_at = ?
+                        WHERE id = ?
+                        """,
+                        (confidence, observation_count, int(confirmed), observed_at, preference_id),
+                    )
+
+                if confirmed:
+                    connection.execute(
+                        """
+                        UPDATE preferences
+                        SET confirmed = 0
+                        WHERE context = ?
+                          AND requested_intent = ?
+                          AND source = 'learned'
+                          AND id != ?
+                        """,
+                        (context, requested_intent, preference_id),
+                    )
+
+                # ponytail: exact repeated targets and simulated-time window fit local controls;
+                # add tolerant clustering and wall-clock timestamps when input becomes noisy.
+                connection.execute(
+                    """
+                    INSERT INTO preference_evidence (
+                        id, preference_id, request_id, session_id, correction_text,
+                        preferred_result_json, created_at
+                    ) VALUES (?, ?, ?, 'implicit-feedback', ?, ?, ?)
+                    """,
+                    (
+                        str(uuid4()),
+                        preference_id,
+                        command_id,
+                        (
+                            f"Manual override {property_path} from {change.before!r} to {change.after!r} "
+                            f"after assistant command {previous['command_id']}."
+                        ),
+                        preferred_result_json,
+                        observed_at,
+                    ),
+                )
+                learned_ids.append(preference_id)
+
+        return [self.get_preference(preference_id) for preference_id in learned_ids]
 
     def record_simulation_event(self, timestamp: datetime, event: str, payload: dict[str, Any]) -> None:
         with self.connect() as connection:

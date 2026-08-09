@@ -32,15 +32,15 @@ Vietnamese text and push-to-talk share the same assistant request flow. Optional
 Voice states:
 
 1. Idle with text input and push-to-talk.
-2. First microphone press starts browser audio recording.
-3. Second microphone press stops capture and uploads audio to local faster-whisper.
+2. Local mode starts `MediaRecorder`; browser deployment starts `SpeechRecognition` with `vi-VN`.
+3. Second microphone press stops current capture. Local mode uploads audio to faster-whisper; browser mode finalizes browser transcript.
 4. Final Vietnamese transcript appears in the request field and submits one request.
-5. Optional wake mode waits for `Hey FlatMate` (`en-US`) before audio recording.
+5. Optional wake mode waits for `Hey FlatMate` (`en-US`) before selected command capture mode.
 6. Processing continues with ordered observable trace cards.
 7. Completed with response and simulated state change.
 8. Failed with retry action and unchanged-state notice.
 
-Controls: push-to-talk, optional wake-mode toggle, text field, send, stop capture, automatic speech toggle, and stop speech.
+Controls: push-to-talk, optional wake-mode toggle, text field, send, stop capture, automatic speech toggle, and stop speech. Local TTS plays backend WAV; deployment calls browser `speechSynthesis`.
 
 ## Dashboard
 

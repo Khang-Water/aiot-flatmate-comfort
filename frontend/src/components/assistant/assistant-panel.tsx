@@ -105,8 +105,12 @@ export function AssistantPanel({
         <div className="voice-status" role="status">
           <span aria-hidden="true" />
           <div>
-            <strong>{voiceStatusLabel(voice.status)}</strong>
-            <small>{voice.wakeEnabled ? "Đang chờ câu “Hey FlatMate” khi rảnh" : "Nhấn một lần để nói, nhấn lần nữa để gửi"}</small>
+            <strong>{voiceStatusLabel(voice.status, voice.mode)}</strong>
+            <small>{voice.wakeEnabled
+              ? "Đang chờ câu “Hey FlatMate” khi rảnh"
+              : voice.mode === "browser"
+                ? "Web Speech API xử lý giọng nói; dữ liệu hỗ trợ tùy trình duyệt"
+                : "Localhost dùng faster-whisper và TTS ngoại tuyến"}</small>
           </div>
         </div>
         <div className="voice-actions">
@@ -131,7 +135,9 @@ export function AssistantPanel({
             Wake word: {voice.wakeEnabled ? "Bật" : "Tắt"}
           </button>
         </div>
-        {!voice.supported ? <p className="voice-error">Trình duyệt không hỗ trợ thu âm. Hãy dùng trình duyệt hiện đại trên localhost hoặc HTTPS, hoặc tiếp tục nhập chữ.</p> : null}
+        {!voice.supported ? <p className="voice-error">{voice.mode === "browser"
+          ? "Trình duyệt không hỗ trợ SpeechRecognition. Hãy dùng Chrome/Edge trên HTTPS hoặc tiếp tục nhập chữ."
+          : "Trình duyệt không hỗ trợ thu âm. Hãy dùng trình duyệt hiện đại trên localhost hoặc HTTPS, hoặc tiếp tục nhập chữ."}</p> : null}
         {voice.error ? <p className="voice-error">{voice.error}</p> : null}
       </section>
 
@@ -166,7 +172,7 @@ export function AssistantPanel({
             <button aria-pressed={voice.autoSpeak} onClick={() => voice.setAutoSpeak(!voice.autoSpeak)} type="button">
               Tự đọc: {voice.autoSpeak ? "Bật" : "Tắt"}
             </button>
-            <button disabled={voice.synthesizing} onClick={() => void voice.speak(responseText)} type="button">
+            <button disabled={voice.synthesizing || !voice.speechSupported} onClick={() => void voice.speak(responseText)} type="button">
               {voice.synthesizing ? "Đang tạo giọng…" : "Đọc phản hồi"}
             </button>
             {(voice.speaking || voice.synthesizing) ? <button onClick={voice.stopSpeaking} type="button">Dừng đọc</button> : null}
@@ -177,9 +183,12 @@ export function AssistantPanel({
   );
 }
 
-function voiceStatusLabel(status: "idle" | "listening" | "transcribing" | "waiting_wake" | "unsupported") {
-  if (status === "listening") return "Đang thu âm tiếng Việt";
-  if (status === "transcribing") return "Đang nhận dạng bằng faster-whisper";
+function voiceStatusLabel(
+  status: "idle" | "listening" | "transcribing" | "waiting_wake" | "unsupported",
+  mode: "browser" | "local",
+) {
+  if (status === "listening") return mode === "browser" ? "Trình duyệt đang nghe tiếng Việt" : "Đang thu âm tiếng Việt";
+  if (status === "transcribing") return mode === "browser" ? "Đang gửi transcript" : "Đang nhận dạng bằng faster-whisper";
   if (status === "waiting_wake") return "Đang chờ Hey FlatMate";
   if (status === "unsupported") return "Voice không khả dụng";
   return "Voice sẵn sàng";

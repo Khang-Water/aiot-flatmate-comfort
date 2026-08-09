@@ -2,7 +2,7 @@
 
 [Đọc báo cáo kỹ thuật tiếng Việt](https://khang-water.github.io/aiot-flatmate-comfort/)
 
-FlatMate Comfort là đồ án AIoT môn NT532, mô phỏng căn hộ thông minh một phòng ngủ có khả năng cá nhân hóa. Python sinh dữ liệu cảm biến và trạng thái thiết bị; giao diện web tiếng Việt dựng bản sao số 3D theo kích thước, nhận yêu cầu văn bản hoặc giọng nói, hiển thị các bước xử lý của trợ lý, cung cấp bảng theo dõi và quản lý sở thích người dùng.
+FlatMate Comfort là đồ án AIoT môn NT532, mô phỏng căn hộ thông minh một phòng ngủ có khả năng cá nhân hóa. Python sinh dữ liệu cảm biến và trạng thái thiết bị; giao diện web tiếng Việt dựng bản sao số 3D theo kích thước, nhận yêu cầu văn bản hoặc giọng nói, hiển thị các bước xử lý của trợ lý, cung cấp bảng theo dõi và học sở thích từ cả yêu cầu rõ ràng lẫn thao tác chỉnh lại kết quả của trợ lý.
 
 Hệ thống không sử dụng thiết bị vật lý. MQTT, ESP32, Home Assistant, cảnh báo an toàn, xác thực và tích hợp thiết bị thật nằm ngoài phạm vi phiên bản hiện tại.
 
@@ -22,21 +22,23 @@ Hệ thống không sử dụng thiết bị vật lý. MQTT, ESP32, Home Assist
 
 ## Trạng thái hiện tại
 
-Sản phẩm gồm bộ máy mô phỏng tất định, lịch sử SQLite, bộ nhớ sở thích có cấu trúc, cập nhật trạng thái qua SSE, bản sao số căn hộ một phòng ngủ, lớp phủ cảm biến và thiết bị, chọn ngữ cảnh hiện diện, bảng theo dõi 24 giờ, điều khiển có quy tắc bảo vệ, thu âm bằng `MediaRecorder`, ASR tiếng Việt cục bộ bằng faster-whisper, chế độ đánh thức `Hey FlatMate`, TTS ngoại tuyến bằng VieNeu v3 Turbo với Supertonic làm phương án dự phòng, lệnh minh họa, quản lý sở thích và lịch sử hội thoại.
+Sản phẩm gồm bộ máy mô phỏng tất định, lịch sử SQLite, bộ nhớ sở thích có cấu trúc, implicit-feedback từ manual override, cập nhật trạng thái qua SSE, bản sao số căn hộ một phòng ngủ, lớp phủ cảm biến và thiết bị, chọn ngữ cảnh hiện diện, bảng theo dõi 24 giờ, điều khiển có quy tắc bảo vệ và voice mode theo môi trường. Localhost dùng `MediaRecorder`, faster-whisper, VieNeu và Supertonic; bản Render dùng `SpeechRecognition` cùng `speechSynthesis` của trình duyệt để không tải model speech vào máy chủ.
 
-Thao tác không hợp lệ hoặc yêu cầu trợ lý thất bại không làm thay đổi trạng thái căn hộ. Khi chưa cấu hình `OPENAI_API_KEY`, mô phỏng, bảng theo dõi, điều khiển thủ công, ASR và TTS vẫn hoạt động.
+Khi người dùng chỉnh thủ công đúng thuộc tính vừa được trợ lý thay đổi trong vòng 30 phút mô phỏng, backend lưu một evidence theo context hiện tại. Ba override có cùng target mới kích hoạt preference nguồn `learned`; một chỉnh sửa đơn lẻ chưa ảnh hưởng request sau.
 
-Kết quả kiểm tra hiện tại: 44 phép kiểm thử phía máy chủ đạt, 1 phép kiểm thử phụ thuộc môi trường được bỏ qua; Ruff, kiểm tra miền dữ liệu giao diện, TypeScript và bản dựng sản xuất đều đạt.
+Thao tác không hợp lệ hoặc yêu cầu trợ lý thất bại không làm thay đổi trạng thái căn hộ. Khi chưa cấu hình `OPENAI_API_KEY`, mô phỏng, bảng theo dõi và điều khiển thủ công vẫn hoạt động; local speech endpoint vẫn có thể kiểm tra độc lập.
+
+Kết quả kiểm tra hiện tại: 46 phép kiểm thử phía máy chủ đạt, 1 phép kiểm thử phụ thuộc môi trường được bỏ qua; Ruff, kiểm tra miền dữ liệu giao diện, TypeScript và bản dựng sản xuất đều đạt.
 
 ## Công nghệ
 
 - Giao diện: Next.js, TypeScript, CSS thích ứng và React Three Fiber.
 - API: Python 3.11, FastAPI và Pydantic.
 - Cập nhật trực tiếp: Server-Sent Events.
-- Lưu trữ: SQLite trên đĩa bền vững.
+- Lưu trữ: SQLite bền vững trên máy cá nhân; filesystem tạm thời trên Render Free.
 - Dữ liệu: tệp CSV sinh tất định và kịch bản JSON.
-- Nhận dạng giọng nói: `MediaRecorder` và faster-whisper `small`, CPU `int8`.
-- Tổng hợp giọng nói: VietNormalizer, VieNeu v3 Turbo ONNX `int8`, giọng `Mai Anh`; Supertonic làm phương án dự phòng.
+- Nhận dạng giọng nói: localhost dùng `MediaRecorder` + faster-whisper `small`; deployment dùng Web Speech `SpeechRecognition` với `vi-VN`.
+- Tổng hợp giọng nói: localhost dùng VieNeu v3 Turbo ONNX `int8` + Supertonic fallback; deployment dùng `speechSynthesis` với `vi-VN`.
 - Trợ lý: OpenAI Responses API với công cụ hàm có cấu trúc.
 - Triển khai: Docker và bản thiết kế Render.
 
@@ -91,7 +93,7 @@ make smoke
 
 ## Triển khai toàn bộ trên Render
 
-`render.yaml` tạo một dịch vụ web Render dùng Docker. Next.js được xuất thành tệp tĩnh trong bước dựng; FastAPI phục vụ giao diện, API, SSE, ASR và TTS trên cùng một tên miền. SQLite cùng bộ nhớ đệm mô hình được lưu tại đĩa bền vững `/var/data`.
+`render.yaml` tạo một dịch vụ Docker trên Render Free. Next.js được build với `NEXT_PUBLIC_SPEECH_MODE=browser`; FastAPI được build không kèm dependency ASR/TTS và đặt `LOCAL_SPEECH_ENABLED=false`. `.dockerignore` chặn local virtualenv và `node_modules` khỏi build context. Voice chạy trong Chrome/Edge qua Web Speech API.
 
 ### Các bước triển khai
 
@@ -101,8 +103,10 @@ make smoke
 4. Xác nhận bản thiết kế và chờ ảnh Docker được dựng.
 5. Mở URL Render được cấp; điểm kiểm tra trạng thái nằm tại `/api/health`, tài liệu OpenAPI tại `/docs`.
 
-**Cảnh báo chi phí:** bản thiết kế dùng gói `standard` và đĩa bền vững 10 GB vì faster-whisper, VieNeu và Supertonic không phù hợp gói miễn phí. Render sẽ hiển thị chi phí trước khi tạo dịch vụ. Không xác nhận thanh toán nếu chưa chấp nhận mức phí.
+Render Free không có persistent disk. SQLite tại `/tmp/flatmate.db`, conversation, history và preference đã học có thể mất sau deploy hoặc restart. Dùng gói trả phí kèm disk khi cần dữ liệu bền vững.
 
-Lần gọi ASR hoặc TTS đầu tiên tải mô hình xuống đĩa bền vững nên có thể chậm. Các lần sau sử dụng bộ nhớ đệm tại `/var/data/cache`.
+Service Free có thể spin down khi không hoạt động; request đầu sau đó chịu cold start.
+
+`SpeechRecognition` không được hỗ trợ đồng đều trên mọi trình duyệt. Text input luôn còn dùng được.
 
 Không đưa `OPENAI_API_KEY` vào mã nguồn, ảnh Docker hoặc biến môi trường giao diện. Khóa bí mật chỉ được nhập trong bảng điều khiển Render.

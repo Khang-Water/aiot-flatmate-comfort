@@ -39,6 +39,8 @@ Context remains deterministic:
 
 User correction can temporarily override inferred context.
 
+Manual controls also feed preference learning. After a successful manual command, storage checks the latest action for each explicitly supplied property. Evidence is recorded only when that prior action came from the assistant within 30 simulated minutes and its output equals the manual command's starting value. Three identical targets under the same inferred context confirm a `learned` preference.
+
 ## Required scenarios
 
 | ID | Main state |
@@ -54,4 +56,4 @@ User correction can temporarily override inferred context.
 | `quiet_comfort` | High device noise while cooling |
 | `empty_room` | No resident or occupied zones |
 
-Scenario actions use the same validation path as manual and assistant actions. Scenario activation is recorded but does not create preference evidence.
+Scenario actions use the same validation path as manual and assistant actions. Scenario activation and scenario-driven changes are recorded but do not create preference evidence.

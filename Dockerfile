@@ -4,7 +4,8 @@ WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json ./frontend/
 RUN npm --prefix frontend ci
 COPY frontend ./frontend
-ENV NEXT_PUBLIC_API_URL=""
+ENV NEXT_PUBLIC_API_URL="" \
+    NEXT_PUBLIC_SPEECH_MODE=browser
 RUN npm --prefix frontend run build
 
 FROM python:3.11.11-slim-bookworm AS runtime
@@ -12,12 +13,10 @@ FROM python:3.11.11-slim-bookworm AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy
+    UV_LINK_MODE=copy \
+    LOCAL_SPEECH_ENABLED=false
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends libgomp1 libsndfile1 \
-    && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir uv==0.11.25
+RUN pip install --no-cache-dir uv==0.11.25
 
 WORKDIR /app
 COPY backend/pyproject.toml backend/uv.lock ./backend/

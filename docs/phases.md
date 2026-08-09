@@ -42,7 +42,7 @@ Acceptance: representative text requests cause correct simulated changes; invali
 
 Implement push-to-talk as the reliable primary flow, optional English wake-word recognition, Vietnamese command recognition, microphone controls, interim transcript, speech synthesis, and text fallback.
 
-Implemented: MediaRecorder command capture, local faster-whisper `large-v3-turbo` Vietnamese ASR on CPU int8, optional Web Speech `en-US` wake mode, transcript display after transcription, voice-source assistant submission, VietNormalizer preprocessing, local Supertonic 3 Vietnamese WAV synthesis, stop controls, permission/error messages, and text fallback. Backend tests, TypeScript, and production build pass.
+Implemented: localhost `MediaRecorder` + faster-whisper `small` Vietnamese ASR, VieNeu v3 Turbo + Supertonic local TTS, optional Web Speech `en-US` wake mode, and deployment mode using browser `SpeechRecognition`/`speechSynthesis` with `vi-VN`. Backend tests, TypeScript, and production build pass.
 
 Acceptance:
 
@@ -55,13 +55,14 @@ Acceptance:
 
 Implement SQLite-backed explicit, temporary, learned, edited, deleted, and scoped-reset flows. Add correction evidence, context-specific matching, expiry, and management UI.
 
-Implemented: preference/evidence SQLite tables, validated API CRUD, explicit and temporary memory, expiry filtering, correction evidence aggregation, immediately active LLM-selected learned preferences, assistant retrieval/save/correction tools, applied-preference tracking, and conversation history UI. Preference management remains available through the API; the dedicated end-user page was removed.
+Implemented: preference/evidence SQLite tables, validated API CRUD, explicit and temporary memory, expiry filtering, immediately active conversational correction memory, implicit feedback from manual overrides, three-observation promotion for `learned` candidates, assistant retrieval/save/correction tools, applied-preference tracking, and conversation history UI. Preference management remains available through the API; the dedicated end-user page was removed.
 
 Acceptance:
 
 - User can state a temporary or persistent preference and inspect its stored scope.
 - A correction becomes evidence; when the LLM identifies a useful preference, it is saved and active immediately.
 - Repeated matching evidence increases learned confidence.
+- A manual override only becomes active memory after three identical targets follow matching assistant actions in the same context.
 - Explicit preference wins over learned evidence and generic assistant behavior.
 - Preference API can edit, delete, expire, or reset learned preferences without deleting conversation/device history.
 - Assistant trace shows preference lookup and applied preference without exposing private model reasoning.
@@ -70,7 +71,7 @@ Acceptance:
 
 Finish guided demo, performance work, error/empty/loading states, representative end-to-end checks, and setup documentation. Responsive layout, larger typography, wide-screen use, touch targets, and responsive 3D camera are already complete.
 
-Implemented: four-step guided demo commands, request-scoped SSE trace buffering, backend API error messages in the UI, reconnect warnings, runtime WebGL recovery UI, running-app smoke checks, and an assistant integration test proving an LLM-selected correction is active on the next request.
+Implemented: four-step guided demo commands, request-scoped SSE trace buffering, backend API error messages in the UI, reconnect warnings, runtime WebGL recovery UI, running-app smoke checks, an assistant integration test proving an LLM-selected correction is active on the next request, and an integration test proving repeated manual overrides promote implicit memory.
 
 Acceptance:
 

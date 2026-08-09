@@ -14,7 +14,6 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from openai import AsyncOpenAI
 
-from app.asr import VietnameseAsr
 from app.assistant import AssistantBusy, AssistantNotConfigured, AssistantOrchestrator
 from app.commands import CommandValidationError
 from app.config import PROJECT_ROOT, get_settings
@@ -46,7 +45,6 @@ from app.scenarios import ScenarioRepository
 from app.simulation import SimulationEngine, prepare_baseline_data
 from app.state import EventBroker, SseMessage
 from app.storage import METRICS, Storage
-from app.tts import OfflineTts, SupertonicTts, VieneuTts
 
 APP_VERSION = "0.6.0"
 BANGKOK = ZoneInfo("Asia/Bangkok")
@@ -76,22 +74,28 @@ assistant = AssistantOrchestrator(
     storage=storage,
     broker=broker,
 )
-supertonic_tts = SupertonicTts(
-    voice=settings.supertonic_voice,
-    steps=settings.supertonic_steps,
-    speed=settings.supertonic_speed,
-)
-vieneu_tts = VieneuTts(voice=settings.vieneu_voice)
-offline_tts = OfflineTts(
-    primary=vieneu_tts if settings.tts_engine == "vieneu" else supertonic_tts,
-    fallback=supertonic_tts if settings.tts_engine == "vieneu" else None,
-)
-vietnamese_asr = VietnameseAsr(
-    model_name=settings.asr_model,
-    device=settings.asr_device,
-    compute_type=settings.asr_compute_type,
-    beam_size=settings.asr_beam_size,
-)
+offline_tts: Any | None = None
+vietnamese_asr: Any | None = None
+if settings.local_speech_enabled:
+    from app.asr import VietnameseAsr
+    from app.tts import OfflineTts, SupertonicTts, VieneuTts
+
+    supertonic_tts = SupertonicTts(
+        voice=settings.supertonic_voice,
+        steps=settings.supertonic_steps,
+        speed=settings.supertonic_speed,
+    )
+    vieneu_tts = VieneuTts(voice=settings.vieneu_voice)
+    offline_tts = OfflineTts(
+        primary=vieneu_tts if settings.tts_engine == "vieneu" else supertonic_tts,
+        fallback=supertonic_tts if settings.tts_engine == "vieneu" else None,
+    )
+    vietnamese_asr = VietnameseAsr(
+        model_name=settings.asr_model,
+        device=settings.asr_device,
+        compute_type=settings.asr_compute_type,
+        beam_size=settings.asr_beam_size,
+    )
 
 
 @asynccontextmanager
@@ -208,6 +212,8 @@ async def assistant_request(request: AssistantRequest) -> AssistantAccepted:
 
 @app.post("/api/tts")
 async def synthesize_speech(request: SpeechRequest) -> Response:
+    if offline_tts is None:
+        raise HTTPException(status_code=503, detail="Local TTS is disabled; use browser speech synthesis.")
     try:
         speech = await asyncio.to_thread(offline_tts.synthesize, request.text)
     except Exception as error:
@@ -226,6 +232,8 @@ async def synthesize_speech(request: SpeechRequest) -> Response:
 
 @app.post("/api/asr", response_model=TranscriptionResponse)
 async def transcribe_speech(audio: Annotated[UploadFile, File()]) -> TranscriptionResponse:
+    if vietnamese_asr is None:
+        raise HTTPException(status_code=503, detail="Local ASR is disabled; use browser speech recognition.")
     if not audio.content_type or not audio.content_type.startswith("audio/"):
         raise HTTPException(status_code=415, detail="Tệp tải lên phải là âm thanh.")
     payload = await audio.read(15 * 1024 * 1024 + 1)

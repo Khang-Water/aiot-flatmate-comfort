@@ -326,6 +326,7 @@ class SimulationEngine:
 
     async def command_device(self, device_id: str, command: DeviceCommand) -> CommandResult:
         async with self._lock:
+            context = self._snapshot.inferred_context
             updated, changes = apply_device_command(self._snapshot, device_id, command.values)
             if device_id == "desk_computer" and changes:
                 self._computer_schedule_enabled = False
@@ -351,6 +352,15 @@ class SimulationEngine:
                     command.source,
                     command.reason,
                 )
+                if command.source == "manual":
+                    self.storage.record_implicit_feedback(
+                        command_id=command_id,
+                        timestamp=timestamp,
+                        context=context,
+                        device_id=device_id,
+                        supplied_values=command.values,
+                        changes=changes,
+                    )
                 self.storage.record_snapshot(self._snapshot)
             snapshot = self._snapshot.model_dump(mode="json")
         if changes:

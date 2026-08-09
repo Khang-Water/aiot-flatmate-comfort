@@ -1,6 +1,6 @@
 # Backend
 
-Python 3.11 FastAPI simulation, assistant, and offline Vietnamese speech service. Speech uses faster-whisper ASR, VietNormalizer text normalization, VieNeu v3 Turbo ONNX synthesis, and Supertonic fallback.
+Python 3.11 FastAPI simulation and assistant service. Optional local speech extra uses faster-whisper ASR, VieNeu v3 Turbo ONNX synthesis, and Supertonic fallback; Render omits this extra.
 
 Current modules:
 
@@ -16,11 +16,15 @@ app/
 ├── scenarios.py         JSON scenario repository
 ├── commands.py          atomic device validation
 ├── tts.py               normalized VieNeu synthesis + Supertonic fallback
-└── storage.py           SQLite history and CSV export
+└── storage.py           SQLite history, preference evidence, and implicit learning
 ```
 
-Run from repository root with `make api`. Add `OPENAI_API_KEY` to root `.env` to enable assistant requests.
+Manual overrides become implicit feedback only when they change the same property most recently set by the assistant, the previous value still matches the assistant output, and the action occurs within 30 simulated minutes. Backend stores an unconfirmed `learned` candidate after the first observation and activates it after three identical targets in the same inferred context. Explicit, temporary, and conversational correction preferences keep their existing higher priority.
+
+Run from repository root with `make api`. Command enables optional `speech` dependencies. Add `OPENAI_API_KEY` to root `.env` to enable assistant requests.
 
 First `POST /api/asr` downloads faster-whisper `small` to the local cache. Defaults: CPU, `int8`, beam size 2; override with `ASR_MODEL`, `ASR_DEVICE`, `ASR_COMPUTE_TYPE`, and `ASR_BEAM_SIZE`.
 
 First `POST /api/tts` downloads VieNeu v3 Turbo model assets. Default engine is ONNX `int8` on CPU with voice `Mai Anh`; set `TTS_ENGINE=supertonic` to disable VieNeu. Supertonic remains automatic fallback and uses `SUPERTONIC_VOICE`, `SUPERTONIC_STEPS`, and `SUPERTONIC_SPEED`.
+
+Set `LOCAL_SPEECH_ENABLED=false` when installing without `--extra speech`. `/api/asr` and `/api/tts` then return `503`; deployed frontend uses browser speech instead.

@@ -9,7 +9,7 @@ trap cleanup EXIT INT TERM
 
 (
   cd backend
-  uv run uvicorn app.main:app --reload --timeout-graceful-shutdown 2 --host 127.0.0.1 --port 8000
+  uv run --extra speech uvicorn app.main:app --reload --timeout-graceful-shutdown 2 --host 127.0.0.1 --port 8000
 ) &
 api_pid=$!
 

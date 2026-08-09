@@ -15,7 +15,7 @@ permalink: /
 **Sinh viên thực hiện:** Khang Lê \
 **MSSV:** Chưa được cung cấp trong repository \
 **Thành viên thứ hai:** Chưa được cung cấp trong repository \
-**Ngày cập nhật báo cáo:** 02/08/2026
+**Ngày cập nhật báo cáo:** 09/08/2026
 
 > Tài liệu hướng dẫn yêu cầu thông tin đầy đủ của tác giả và nhóm hai thành viên. Báo cáo không tự suy đoán MSSV hoặc danh tính thành viên còn thiếu; các trường trên cần được bổ sung trước khi nộp bản chính thức.
 
@@ -39,11 +39,11 @@ permalink: /
 
 ## Tóm tắt
 
-FlatMate Comfort là nguyên mẫu AIoT mô phỏng một căn hộ một phòng ngủ. Hệ thống kết hợp digital twin 3D, dữ liệu cảm biến sinh theo thời gian, trạng thái thiết bị, ngữ cảnh hiện diện và bộ nhớ sở thích để chuyển yêu cầu tiếng Việt thành tập giá trị điều khiển có cấu trúc. Người dùng có thể nhập văn bản, nói qua microphone hoặc điều khiển thiết bị trực tiếp. Trợ lý đọc `RoomSnapshot`, truy xuất preference phù hợp, gọi structured function tools, kiểm tra guardrail và chỉ cập nhật mô phỏng khi toàn bộ scene hợp lệ.
+FlatMate Comfort là nguyên mẫu AIoT mô phỏng một căn hộ một phòng ngủ. Hệ thống kết hợp digital twin 3D, dữ liệu cảm biến sinh theo thời gian, trạng thái thiết bị, ngữ cảnh hiện diện và bộ nhớ sở thích để chuyển yêu cầu tiếng Việt thành tập giá trị điều khiển có cấu trúc. Người dùng có thể nhập văn bản, nói qua microphone hoặc điều khiển thiết bị trực tiếp. Trợ lý đọc `RoomSnapshot`, truy xuất preference phù hợp, gọi structured function tools, kiểm tra guardrail và chỉ cập nhật mô phỏng khi toàn bộ scene hợp lệ. Manual override sau một hành động của trợ lý còn được ghi thành implicit evidence; ba target giống nhau trong cùng context mới kích hoạt preference nguồn `learned`.
 
-Backend được xây dựng bằng FastAPI, Pydantic và SQLite. Simulation engine chạy xác định với seed cố định, duy trì lịch sử 24 giờ và phát trạng thái qua Server-Sent Events (SSE). Frontend Next.js sử dụng React Three Fiber để dựng căn hộ, nội thất, người dùng, sensor overlay, dashboard và conversation history. ASR chạy cục bộ bằng faster-whisper `small` trên CPU `int8`. TTS dùng VieNeu-TTS v3 Turbo ONNX `int8` làm engine chính và Supertonic làm fallback; phần suy luận giọng nói không sử dụng Azure Speech hoặc OpenAI Audio API.
+Backend được xây dựng bằng FastAPI, Pydantic và SQLite. Simulation engine chạy xác định với seed cố định, duy trì lịch sử 24 giờ và phát trạng thái qua Server-Sent Events (SSE). Frontend Next.js sử dụng React Three Fiber để dựng căn hộ, nội thất, người dùng, sensor overlay, dashboard và conversation history. Speech có hai mode: localhost dùng faster-whisper `small` trên CPU `int8`, VieNeu-TTS v3 Turbo ONNX `int8` và Supertonic fallback; bản Render Free dùng `SpeechRecognition` cùng `speechSynthesis` của trình duyệt để không cài model speech trên máy chủ.
 
-Kết quả kiểm tra tại thời điểm báo cáo gồm 43 test backend đạt, 1 test bỏ qua theo điều kiện môi trường, Ruff đạt, TypeScript đạt và production build thành công. Dataset baseline có 1.440 mẫu cảm biến, tương ứng một mẫu mỗi phút trong 24 giờ. Một lần chạy end-to-end trên kịch bản `hot_room` đã chuyển trạng thái từ AC tắt ở 27°C và quạt tắt sang AC bật ở 25°C, quạt mức 1; cửa sổ giữ đóng. TTS greedy tạo câu 2,80 giây với thời gian trung bình 2,99 giây qua ba lượt và cho cùng transcript khi kiểm tra vòng bằng ASR.
+Kết quả kiểm tra tại thời điểm báo cáo gồm 46 test backend đạt, 1 test bỏ qua theo điều kiện môi trường, Ruff đạt, TypeScript đạt và production build thành công. Dataset baseline có 1.440 mẫu cảm biến, tương ứng một mẫu mỗi phút trong 24 giờ. Một lần chạy end-to-end trên kịch bản `hot_room` đã chuyển trạng thái từ AC tắt ở 27°C và quạt tắt sang AC bật ở 25°C, quạt mức 1; cửa sổ giữ đóng. TTS local greedy tạo câu 2,80 giây với thời gian trung bình 2,99 giây qua ba lượt và cho cùng transcript khi kiểm tra vòng bằng ASR.
 
 **Từ khóa:** AIoT, digital twin, smart apartment, personalization, LLM tool calling, context memory, sensor simulation, Vietnamese ASR, offline TTS.
 
@@ -113,8 +113,8 @@ Ví dụ output nội bộ:
 2. Dựng digital twin một căn hộ một phòng ngủ theo floor plan có kích thước và độ tin cậy được ghi rõ.
 3. Cho phép trợ lý hiểu yêu cầu tiếng Việt và chọn structured tools thay vì backend phân loại bằng danh sách từ khóa.
 4. Giữ mọi thay đổi thiết bị trong miền hợp lệ và áp dụng nguyên tử.
-5. Cá nhân hóa bằng explicit preference, temporary preference và correction evidence.
-6. Hỗ trợ push-to-talk tiếng Việt và TTS offline ổn định.
+5. Cá nhân hóa bằng explicit preference, temporary preference, correction evidence và implicit feedback từ manual override.
+6. Hỗ trợ push-to-talk và TTS tiếng Việt bằng local model hoặc Web Speech API theo môi trường.
 7. Trình bày trạng thái, trace, lịch sử và kết quả mô phỏng trên website responsive.
 
 ### 1.4. Đóng góp chính
@@ -123,8 +123,8 @@ Ví dụ output nội bộ:
 - Simulation engine xác định được, có 10 scenario và baseline 24 giờ.
 - Assistant orchestration dùng Responses API, structured function tools và observable trace.
 - Guardrail kiểm tra schema, range, bounded change, xung đột thiết bị và atomicity.
-- Preference store có context, intent, expiry, confidence, evidence và `last_used_at`.
-- Speech pipeline tiếng Việt với ASR và TTS suy luận cục bộ.
+- Preference store có context, intent, expiry, confidence, evidence, `last_used_at` và promotion threshold cho implicit feedback.
+- Speech pipeline tiếng Việt có local mode đầy đủ và browser mode nhẹ cho deployment.
 - Bộ kiểm thử backend, contract, frontend geometry, voice, privacy và accessibility.
 
 ## 2. Phạm vi và yêu cầu hệ thống
@@ -136,6 +136,7 @@ Ví dụ output nội bộ:
 - Text request, push-to-talk, TTS, manual controls và scenario activation.
 - REST API cho command/query; SSE cho snapshot và trace realtime.
 - SQLite cho history, action, conversation, trace và preference.
+- Implicit-feedback pipeline nối manual override với assistant action gần nhất theo property và context.
 - LLM qua OpenAI-compatible Responses API.
 - Frontend tiếng Việt trên desktop, tablet và mobile.
 
@@ -145,7 +146,8 @@ Ví dụ output nội bộ:
 - Camera, khóa cửa, báo cháy, báo gas, cảnh báo khẩn cấp và mobile push.
 - Authentication, multi-user, multi-apartment và phân quyền.
 - Điều khiển an toàn cấp công nghiệp hoặc medical-grade.
-- Tự động suy ra preference chỉ từ hành vi thụ động chưa được người dùng xác nhận.
+- Học thụ động từ sensor hoặc thao tác không liên hệ được với assistant action trước đó.
+- Kích hoạt preference implicit từ một quan sát đơn lẻ.
 
 ### 2.3. Yêu cầu chức năng
 
@@ -155,9 +157,9 @@ Ví dụ output nội bộ:
 | FR-02 | Kích hoạt, pause, resume, reset và đổi tốc độ simulation |
 | FR-03 | Điều khiển từng thiết bị bằng command đã kiểm tra |
 | FR-04 | Nhận yêu cầu text/voice và phát assistant trace |
-| FR-05 | Lưu, cập nhật, xóa và reset preference học từ correction |
+| FR-05 | Lưu, cập nhật, xóa và reset preference từ explicit request, correction và implicit manual override |
 | FR-06 | Hiển thị digital twin, dashboard 24 giờ và conversation history |
-| FR-07 | Tạo transcript tiếng Việt và WAV tiếng Việt cục bộ |
+| FR-07 | Tạo transcript và speech tiếng Việt bằng provider phù hợp môi trường |
 
 ### 2.4. Yêu cầu phi chức năng
 
@@ -165,7 +167,7 @@ Ví dụ output nội bộ:
 - **Atomicity:** scene có một field sai không được cập nhật dở dang.
 - **Observability:** chỉ hiển thị event, tool, validation và rationale ngắn; không hiển thị private chain-of-thought.
 - **Graceful degradation:** lỗi microphone, TTS, WebGL hoặc LLM không làm mất text response hay state đã xác nhận.
-- **Privacy boundary:** audio được xử lý cục bộ; transcript và snapshot cần thiết có thể được gửi tới LLM bên ngoài khi assistant được sử dụng.
+- **Privacy boundary:** local mode xử lý audio trong backend cục bộ; browser mode có thể dùng dịch vụ nhận dạng của nhà cung cấp trình duyệt. App server chỉ nhận transcript, còn transcript và snapshot cần thiết có thể được gửi tới LLM bên ngoài khi assistant được sử dụng.
 - **Accessibility:** giao diện có text equivalent khi 3D/WebGL không khả dụng.
 
 ## 3. Related work
@@ -197,9 +199,11 @@ Mem0 cung cấp memory layer tổng quát với user/session/agent memory và re
 
 Nguồn chỉnh sửa: [`docs/figures/flatmate-system-architecture.drawio`](docs/figures/flatmate-system-architecture.drawio).
 
+Hình 1 mô tả local mode đầy đủ. Trên Render Free, hai khối ASR/TTS offline được thay bằng `SpeechRecognition` và `speechSynthesis` trong trình duyệt.
+
 ### 4.1. Lớp tương tác
 
-Frontend dùng Next.js 16, React 19, Three.js và React Three Fiber. Trang `/` hiển thị digital twin và assistant; `/dashboard` hiển thị metric, chart và manual controls; `/history` hiển thị conversation. Browser dùng `MediaRecorder` để ghi audio và `EventSource` để nhận SSE.
+Frontend dùng Next.js 16, React 19, Three.js và React Three Fiber. Trang `/` hiển thị digital twin và assistant; `/dashboard` hiển thị metric, chart và manual controls; `/history` hiển thị conversation. `NEXT_PUBLIC_SPEECH_MODE=local` dùng `MediaRecorder`; mode `browser` dùng Web Speech API. `EventSource` nhận SSE ở cả hai mode.
 
 ### 4.2. Lớp dịch vụ
 
@@ -207,7 +211,7 @@ FastAPI cung cấp 18 API operations. Pydantic model đặt `extra="forbid"` đ�
 
 ### 4.3. Lớp digital twin và mô phỏng
 
-`SimulationEngine` sở hữu `RoomSnapshot`, simulation clock, active scenario và state transition. Mỗi command được preview và validate trước khi state authoritative thay đổi. `EventBroker` phát snapshot, trace và simulation event theo sequence tăng dần.
+`SimulationEngine` sở hữu `RoomSnapshot`, simulation clock, active scenario và state transition. Mỗi command được preview và validate trước khi state authoritative thay đổi. Sau manual command hợp lệ, engine chuyển command ID, context, field được cung cấp và changed values sang storage để kiểm tra implicit feedback. `EventBroker` phát snapshot, trace và simulation event theo sequence tăng dần.
 
 ### 4.4. Lớp dữ liệu
 
@@ -223,9 +227,11 @@ SQLite lưu:
 
 Scenario được định nghĩa bằng JSON. Dataset baseline được export sang CSV để kiểm tra và trình bày độc lập với database runtime.
 
+`device_actions` đồng thời là nguồn liên kết implicit feedback. Storage chỉ ghi evidence khi manual command sửa đúng property gần nhất do assistant thay đổi trong tối đa 30 phút mô phỏng và giá trị `before` vẫn bằng output assistant.
+
 ### 4.5. Boundary cục bộ và cloud
 
-Simulation, SQLite, ASR và TTS chạy cục bộ. LLM là dependency bên ngoài khi `OPENAI_API_KEY` được cấu hình. Audio gốc không được gửi qua assistant API; backend chỉ gửi text, trạng thái cần thiết và tool output. Nếu LLM không khả dụng, dashboard, scenario, manual controls, ASR và TTS vẫn có thể hoạt động độc lập.
+Simulation và SQLite chạy trong FastAPI. Localhost còn chạy ASR/TTS cục bộ; Render Free đặt `LOCAL_SPEECH_ENABLED=false`, bỏ optional dependency `speech`, và chuyển voice sang trình duyệt. LLM là dependency bên ngoài khi `OPENAI_API_KEY` được cấu hình. Audio gốc không đi qua assistant API; backend chỉ gửi text, trạng thái cần thiết và tool output. SQLite trên Render Free dùng filesystem tạm thời nên không bảo đảm giữ history hoặc preference qua deploy/restart.
 
 ## 5. Digital twin căn hộ một phòng ngủ
 
@@ -304,6 +310,8 @@ Các quan hệ chính:
 | `set_room_scene` | Đề xuất tập device targets nguyên tử |
 
 Assistant không trực tiếp sửa object Python. `set_room_scene` chỉ tạo pending scene. State được cập nhật sau khi final response hợp lệ và scene vượt qua preview validation.
+
+Implicit feedback không phải model tool. Nó chạy sau một manual device command đã được validate, không tự thay đổi thiết bị và chỉ tạo candidate memory cho request tương lai.
 
 ### 6.2. Guardrail
 
@@ -399,15 +407,34 @@ confidence = min(0.98, 0.8 + observation_count × 0.05)
 
 Mỗi lần sửa được lưu riêng trong `preference_evidence`. Chức năng reset learned memory chỉ xóa source `learned` và `user_correction`, không xóa explicit hoặc temporary preference.
 
-### 7.5. Đánh giá thiết kế memory
+### 7.5. Implicit feedback và đánh giá thiết kế memory
 
-Thiết kế hiện tại phù hợp demo vì typed target có thể validate bằng cùng `RoomSceneTargets`. Hạn chế là retrieval dựa trên context và thứ tự, chưa có semantic similarity, deduplication giữa intent gần nghĩa, temporal decay hoặc cross-session summarization như các memory framework tổng quát. Hướng nâng cấp là thêm embedding index cho `requested_intent`, nhưng vẫn giữ typed target và evidence trong SQLite làm source of truth.
+Pipeline implicit dùng `device_actions` và bảng preference/evidence hiện có, không cần vector database hoặc model huấn luyện riêng. Một manual adjustment chỉ được xem là feedback khi đồng thời thỏa các điều kiện:
+
+1. Command có source `manual` và field đó được người dùng cung cấp trực tiếp.
+2. Action gần nhất trên cùng property có source `assistant`.
+3. Action assistant xảy ra trong 30 phút mô phỏng gần nhất.
+4. Giá trị assistant đã đặt bằng giá trị `before` của manual adjustment.
+
+Mỗi field được ánh xạ sang một `PreferenceTargets` có kiểu dữ liệu, chẳng hạn `devices.main_light.brightness_percent` thành `main_light_brightness_percent`. Candidate được nhóm theo `context`, intent ổn định của field và target chính xác:
+
+```text
+observation 1: confidence = 1/3, confirmed = false
+observation 2: confidence = 2/3, confirmed = false
+observation 3: confidence = 0.98, confirmed = true
+```
+
+Khi candidate mới được confirmed, các candidate `learned` khác cùng context và intent bị bỏ xác nhận. Evidence vẫn lưu command ID, target, thời điểm và mô tả before/after với marker `implicit-feedback`. Việc promotion không phát sinh actuation; preference chỉ có thể được áp dụng trong request sau qua retrieval, `applied_preference_id` và guardrail như mọi preference khác.
+
+Thiết kế hiện tại phù hợp demo vì typed target có thể validate bằng cùng `RoomSceneTargets`; implicit learner cũng tái sử dụng action log và preference lifecycle sẵn có. Hạn chế là retrieval dựa trên context và thứ tự, chưa có semantic similarity, deduplication giữa intent gần nghĩa, temporal decay hoặc cross-session summarization. Implicit matching hiện yêu cầu target lặp chính xác và dùng simulation clock, chưa gom các giá trị slider gần nhau hoặc dùng wall-clock. Hướng nâng cấp là thêm tolerant clustering và embedding index cho `requested_intent`, nhưng vẫn giữ typed target và evidence trong SQLite làm source of truth.
 
 ## 8. Xử lý giọng nói tiếng Việt
 
+Build mode quyết định provider. Localhost mặc định dùng backend offline để có model và vocabulary kiểm soát được. Docker deployment dùng Web Speech API để vừa giới hạn RAM/CPU vừa tránh tải hàng trăm MB model trên Render Free.
+
 ### 8.1. ASR
 
-Browser thu mono audio với `echoCancellation`, `noiseSuppression` và `autoGainControl`. Backend dùng faster-whisper `1.2.1`:
+Trong local mode, browser thu mono audio với `echoCancellation`, `noiseSuppression` và `autoGainControl`. Backend dùng faster-whisper `1.2.1`:
 
 ```text
 model = small
@@ -422,9 +449,11 @@ VAD = enabled
 
 Initial prompt và hotwords chứa tên thiết bị, số, đơn vị và trạng thái smart apartment. `condition_on_previous_text=false` giảm nguy cơ model lặp nội dung từ segment trước.
 
+Trong browser mode, `SpeechRecognition` chạy với `lang="vi-VN"`, `continuous=false` và final transcript được đưa vào cùng text request flow. Khả năng hỗ trợ và việc xử lý audio phụ thuộc trình duyệt; text input là fallback bắt buộc.
+
 ### 8.2. TTS
 
-Pipeline hiện tại:
+Local TTS pipeline:
 
 ```text
 assistant response
@@ -438,7 +467,7 @@ assistant response
 
 VieNeu inference dùng `temperature=0`, `repetition_penalty=1.25`, `silence_p=0.08` và `crossfade_p=0.02`. Greedy decoding được chọn sau khi ba lượt tạo cùng một câu đều cho transcript vòng giống nhau. Nếu VieNeu initialization thất bại, lỗi được cache để không tải lại model ở mỗi request; wrapper chuyển sang Supertonic. Response header phản ánh engine và voice thực tế.
 
-Model assets cần tải ở lần sử dụng đầu tiên. Sau khi cache hoàn tất, ASR và TTS inference chạy cục bộ; không gọi dịch vụ speech cloud.
+Model assets cần tải ở lần local sử dụng đầu tiên. Sau khi cache hoàn tất, ASR và TTS inference chạy cục bộ. Browser mode không gọi `/api/asr` hoặc `/api/tts`; frontend tạo `SpeechSynthesisUtterance` với `lang="vi-VN"` và ưu tiên voice Việt có sẵn trên browser/OS.
 
 ## 9. Phân tích mã nguồn
 
@@ -446,8 +475,8 @@ Model assets cần tải ở lần sử dụng đầu tiên. Sau khi cache hoàn
 
 | Nhóm | File | Dòng mã tại thời điểm đo |
 | --- | ---: | ---: |
-| Backend application | 13 Python files | 3.274 |
-| Backend tests | 6 Python files | 1.009 |
+| Backend application | 13 Python files | 3.504 |
+| Backend tests | 6 Python files | 1.074 |
 | Frontend `src` | 16 TS/TSX files | 2.198 |
 | API surface | 18 operations | — |
 
@@ -459,10 +488,10 @@ Số dòng chỉ mô tả snapshot repository, không dùng làm chỉ số ch�
 | --- | --- |
 | `main.py` | FastAPI lifecycle, routes, CORS, error mapping, SSE |
 | `models.py` | Pydantic contracts và domain invariants |
-| `simulation.py` | Clock, baseline, context inference, scenario và device effects |
+| `simulation.py` | Clock, baseline, context inference, scenario, device effects và implicit-feedback handoff |
 | `commands.py` | Device normalization, validation và scene application |
 | `assistant.py` | Responses tool loop, trace và pending scene |
-| `storage.py` | SQLite schema, history, conversation và preference lifecycle |
+| `storage.py` | SQLite schema, history, conversation, preference lifecycle và implicit promotion |
 | `state.py` | Ordered in-process event broker |
 | `asr.py` | Lazy faster-whisper inference |
 | `tts.py` | Text preparation, VieNeu primary, Supertonic fallback |
@@ -475,13 +504,13 @@ Số dòng chỉ mô tả snapshot repository, không dùng làm chỉ số ch�
 | `apartment-canvas.tsx` | Floor plan, walls, openings, furniture, resident và sensor/device overlay |
 | `assistant-panel.tsx` | Input, trace, voice state và final response |
 | `use-flatmate.ts` | Fetch state, SSE reconnect, scenario và command orchestration |
-| `use-browser-voice.ts` | MediaRecorder, ASR upload, TTS playback và wake mode |
+| `use-browser-voice.ts` | Chọn local/browser speech, MediaRecorder, Web Speech, TTS playback và wake mode |
 | `history-chart.tsx` | Biểu đồ 24 giờ và hover detail |
-| `device-controls.tsx` | Manual device command |
+| `device-controls.tsx` | Manual device command và nguồn implicit override |
 
 ### 9.4. API surface
 
-API gồm health/state, simulation, scenario, device command, assistant, ASR/TTS, conversation, preference, history và SSE. Unknown fields bị từ chối; audio payload giới hạn 15 MB; history bị clamp ở 24 giờ mới nhất.
+API gồm health/state, simulation, scenario, device command, assistant, ASR/TTS, conversation, preference, history và SSE. Unknown fields bị từ chối; audio payload giới hạn 15 MB; history bị clamp ở 24 giờ mới nhất. ASR/TTS endpoint trả `503` khi `LOCAL_SPEECH_ENABLED=false`.
 
 ## 10. Demonstration, logs và numerical results
 
@@ -513,7 +542,7 @@ Final response:
 
 Kết quả trên là một lần đo functional, không đại diện cho phân bố latency tổng quát của model hoặc network.
 
-### 10.3. TTS benchmark
+### 10.3. TTS local benchmark
 
 Câu kiểm tra:
 
@@ -537,14 +566,14 @@ X-TTS-Voice: Mai Anh
 
 | Kiểm tra | Kết quả |
 | --- | --- |
-| Pytest | 43 passed, 1 skipped, 3,66 s |
+| Pytest | 46 passed, 1 skipped |
 | Ruff | All checks passed |
 | Frontend domain checks | geometry, voice, trace, privacy, accessibility passed |
 | TypeScript | `tsc --noEmit` passed |
 | Next.js production build | compiled và prerendered thành công |
 | Draw.io architecture validation | 0 error; 2 edge-crossing warnings, không có edge đi qua node |
 
-Test bao phủ contract, scenario loading, deterministic reset, history clamp, atomic command, assistant tool loop, preference lifecycle, session isolation, TTS text normalization, fallback và VieNeu initialization failure cache.
+Test bao phủ contract, scenario loading, deterministic reset, history clamp, atomic command, assistant tool loop, preference lifecycle, session isolation, implicit candidate gating và promotion sau ba manual override, TTS text normalization, fallback, VieNeu initialization failure cache và trạng thái local speech bị tắt trong deployment.
 
 ## 11. Đánh giá
 
@@ -567,7 +596,8 @@ Test bao phủ contract, scenario loading, deterministic reset, history clamp, a
 - Simulation và dataset tái lập được bằng seed.
 - LLM chỉ đề xuất action; backend giữ quyền validation và mutation.
 - Memory record giải thích được, có evidence và expiry.
-- Speech pipeline Việt ngữ chạy offline sau bước tải model.
+- Implicit learning không kích hoạt từ một thao tác đơn lẻ và không bỏ qua guardrail khi áp dụng.
+- Speech pipeline Việt ngữ giữ local offline mode nhưng có browser mode đủ nhẹ cho Render Free.
 - Digital twin thể hiện đồng thời không gian, người dùng, sensor và device state.
 
 ### 11.3. Hạn chế
@@ -577,6 +607,7 @@ Test bao phủ contract, scenario loading, deterministic reset, history clamp, a
 - Chưa có labeled Vietnamese command corpus để đo intent accuracy, WER và CER.
 - TTS benchmark mới có câu ngắn; chưa đánh giá MOS, long-form stability và nhiều speaker.
 - Preference retrieval chưa dùng semantic search hoặc conflict resolution theo từng field.
+- Implicit learner chưa gom cụm target gần nhau, chưa decay evidence và đang dùng simulation-time window.
 - Digital twin dựa trên raster floor plan có dimension conflict và không đạt construction-grade.
 - Chưa có browser E2E automation cho microphone permission và WebGL recovery.
 
@@ -606,6 +637,9 @@ make smoke
 ### 12.2. Cấu hình speech mặc định
 
 ```text
+LOCAL_SPEECH_ENABLED=true
+NEXT_PUBLIC_SPEECH_MODE=local
+
 ASR_MODEL=small
 ASR_DEVICE=cpu
 ASR_COMPUTE_TYPE=int8
@@ -618,25 +652,25 @@ SUPERTONIC_STEPS=12
 SUPERTONIC_SPEED=1.0
 ```
 
-### 12.3. Triển khai tách frontend/backend
+### 12.3. Triển khai Render Free
 
-Frontend có thể export và deploy trên Netlify. Backend cần persistent process, writable volume cho SQLite và đủ RAM/disk cho ASR/TTS model cache. `NEXT_PUBLIC_API_URL` phải trỏ đến public FastAPI endpoint. CORS chỉ cho phép configured web origin.
+Docker build frontend với `NEXT_PUBLIC_SPEECH_MODE=browser`, cài backend không có extra `speech`, và đặt `LOCAL_SPEECH_ENABLED=false`. `render.yaml` dùng gói `free`; browser Chrome/Edge thực hiện recognition/synthesis trên HTTPS. SQLite đặt tại `/tmp/flatmate.db`, vì vậy history, conversation và learned preference không bền qua deploy hoặc restart. Khi cần persistence hoặc local speech trên server, phải dùng paid instance cùng persistent disk và cài extra `speech`.
 
 ## 13. Hướng phát triển
 
 1. Thêm MQTT/Home Assistant adapter phía sau interface command hiện tại; giữ guardrail trước lớp adapter.
 2. Bổ sung sensor ingestion thật và cơ chế reconciliation giữa reported state với desired state.
 3. Dùng embedding retrieval cho intent gần nghĩa nhưng giữ typed preference trong SQLite.
-4. Thêm preference conflict resolution theo field, temporal decay và summary compaction.
+4. Thêm tolerant clustering cho slider, preference conflict resolution theo field, temporal decay, wall-clock evidence và summary compaction.
 5. Xây dựng Vietnamese smart-apartment benchmark có ground truth action, WER/CER và latency percentile.
 6. Đánh giá TTS bằng MOS, pronunciation set cho số/đơn vị và long-form repetition tests.
 7. Xuất mô hình digital twin thành GLB/GLTF và duy trì dimension report tự động.
 8. Thêm Playwright E2E cho SSE reconnect, audio permission, WebGL fallback và responsive breakpoints.
-9. Containerize backend và tách model cache, database volume, observability metrics.
+9. Thêm persistent database cho deployment, model-cache volume khi bật server speech, và observability metrics.
 
 ## 14. Kết luận
 
-FlatMate Comfort chứng minh một kiến trúc AIoT cá nhân hóa có thể kiểm chứng trong môi trường không có phần cứng thật. Digital twin tạo ngữ cảnh không gian và trạng thái; simulation engine cung cấp sensor data có thể tái lập; LLM chuyển ngôn ngữ tự nhiên thành structured targets; guardrail giữ quyền kiểm soát miền thiết bị; preference store tạo tính cá nhân hóa có evidence; ASR và TTS cung cấp interaction tiếng Việt.
+FlatMate Comfort chứng minh một kiến trúc AIoT cá nhân hóa có thể kiểm chứng trong môi trường không có phần cứng thật. Digital twin tạo ngữ cảnh không gian và trạng thái; simulation engine cung cấp sensor data có thể tái lập; LLM chuyển ngôn ngữ tự nhiên thành structured targets; guardrail giữ quyền kiểm soát miền thiết bị; preference store kết hợp explicit memory, conversational correction và implicit manual override có evidence; local model hoặc Web Speech API cung cấp interaction tiếng Việt theo tài nguyên triển khai.
 
 Giá trị chính của đề tài không nằm ở việc để LLM điều khiển trực tiếp thiết bị, mà ở việc phân tách rõ ba trách nhiệm: model hiểu yêu cầu, backend kiểm tra action, simulation/device layer thi hành state transition. Cấu trúc này tạo đường nâng cấp hợp lý từ demo digital twin sang hệ thống có MQTT hoặc Home Assistant adapter mà không phải thay đổi contract và guardrail cốt lõi.
 

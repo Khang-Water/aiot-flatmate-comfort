@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-5.6-sol"
     openai_reasoning_effort: str = "low"
     openai_timeout_seconds: float = Field(default=45, gt=0, le=180)
+    local_speech_enabled: bool = True
     tts_engine: Literal["vieneu", "supertonic"] = "vieneu"
     vieneu_voice: str = "Mai Anh"
     supertonic_voice: str = Field(default="F4", pattern=r"^[MF][1-5]$")

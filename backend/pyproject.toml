@@ -5,13 +5,17 @@ description = "FlatMate Comfort simulation API"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi==0.139.2",
-    "faster-whisper==1.2.1",
     "openai==2.46.0",
     "pydantic-settings>=2.10,<3",
     "python-multipart>=0.0.9,<1",
+    "uvicorn[standard]==0.51.0",
+]
+
+[project.optional-dependencies]
+speech = [
+    "faster-whisper==1.2.1",
     "soundfile==0.14.0",
     "supertonic==1.3.1",
-    "uvicorn[standard]==0.51.0",
     "vieneu==3.2.3",
     "vietnormalizer==0.2.3",
 ]

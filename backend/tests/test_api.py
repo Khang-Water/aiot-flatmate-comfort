@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
 
+import app.main as main_module
 from app.asr import Transcription
 from app.main import app, encode_sse, mount_frontend, offline_tts, vietnamese_asr
 from app.tts import SynthesizedSpeech
@@ -203,3 +204,19 @@ def test_asr_returns_vietnamese_transcript_without_loading_model(
     assert response.status_code == 200
     assert response.json()["text"] == "Tắt điều hòa"
     assert response.json()["language"] == "vi"
+
+
+def test_local_speech_routes_report_disabled_backend(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(main_module, "offline_tts", None)
+    monkeypatch.setattr(main_module, "vietnamese_asr", None)
+
+    tts_response = client.post("/api/tts", json={"text": "Xin chào"})
+    asr_response = client.post("/api/asr", files={"audio": ("command.webm", b"audio-data", "audio/webm")})
+
+    assert tts_response.status_code == 503
+    assert tts_response.json()["detail"] == "Local TTS is disabled; use browser speech synthesis."
+    assert asr_response.status_code == 503
+    assert asr_response.json()["detail"] == "Local ASR is disabled; use browser speech recognition."

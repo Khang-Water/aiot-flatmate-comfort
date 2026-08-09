@@ -5,6 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { API_URL, jsonRequest } from "@/lib/api";
 
 type VoiceStatus = "idle" | "listening" | "transcribing" | "waiting_wake" | "unsupported";
+type SpeechMode = "browser" | "local";
+
+const SPEECH_MODE: SpeechMode = process.env.NEXT_PUBLIC_SPEECH_MODE === "browser" ? "browser" : "local";
 
 interface RecognitionResult { 0: { transcript: string } }
 interface RecognitionEvent extends Event { results: ArrayLike<RecognitionResult> }
@@ -41,6 +44,7 @@ export function useBrowserVoice({ busy, responseText, onCommand, onTranscript }:
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [speaking, setSpeaking] = useState(false);
   const [synthesizing, setSynthesizing] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(true);
   const [error, setError] = useState("");
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -56,17 +60,23 @@ export function useBrowserVoice({ busy, responseText, onCommand, onTranscript }:
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef("");
   const speechRequestRef = useRef<AbortController | null>(null);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   useEffect(() => {
     const voiceWindow = window as VoiceWindow;
     const canRecord = Boolean(navigator.mediaDevices && "MediaRecorder" in window);
-    const canWake = Boolean(voiceWindow.SpeechRecognition || voiceWindow.webkitSpeechRecognition);
-    setSupported(canRecord);
-    setWakeSupported(canWake);
-    setStatus(canRecord ? "idle" : "unsupported");
+    const canRecognize = Boolean(voiceWindow.SpeechRecognition || voiceWindow.webkitSpeechRecognition);
+    const canSpeak = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+    const canCapture = SPEECH_MODE === "browser" ? canRecognize : canRecord;
+    setSupported(canCapture);
+    setWakeSupported(canRecognize);
+    setSpeechSupported(SPEECH_MODE === "local" || canSpeak);
+    setStatus(canCapture ? "idle" : "unsupported");
     return () => {
       wakeEnabledRef.current = false;
-      recognitionRef.current?.abort();
+      const recognition = recognitionRef.current;
+      recognitionRef.current = null;
+      recognition?.abort();
       stopRecording(false);
       stopSpeaking();
     };
@@ -74,7 +84,12 @@ export function useBrowserVoice({ busy, responseText, onCommand, onTranscript }:
 
   useEffect(() => {
     busyRef.current = busy;
-  }, [busy]);
+    if (!busy || status !== "waiting_wake") return;
+    const recognition = recognitionRef.current;
+    recognitionRef.current = null;
+    recognition?.abort();
+    setStatus("idle");
+  }, [busy, status]);
 
   useEffect(() => {
     onCommandRef.current = onCommand;
@@ -88,10 +103,10 @@ export function useBrowserVoice({ busy, responseText, onCommand, onTranscript }:
   }, [busy, wakeEnabled, wakeSupported]);
 
   useEffect(() => {
-    if (!autoSpeak || !responseText || responseText === lastSpokenRef.current) return;
+    if (!autoSpeak || !speechSupported || !responseText || responseText === lastSpokenRef.current) return;
     lastSpokenRef.current = responseText;
     void speak(responseText);
-  }, [autoSpeak, responseText]);
+  }, [autoSpeak, responseText, speechSupported]);
 
   function recognitionConstructor(): RecognitionConstructor | null {
     const voiceWindow = window as VoiceWindow;
@@ -122,10 +137,11 @@ export function useBrowserVoice({ busy, responseText, onCommand, onTranscript }:
       }
     };
     recognition.onend = () => {
-      if (recognitionRef.current === recognition) recognitionRef.current = null;
+      if (recognitionRef.current !== recognition) return;
+      recognitionRef.current = null;
       if (wakeToCommandRef.current) {
         wakeToCommandRef.current = false;
-        void startRecording();
+        startCommandCapture();
         return;
       }
       setStatus("idle");
@@ -137,6 +153,64 @@ export function useBrowserVoice({ busy, responseText, onCommand, onTranscript }:
     } catch {
       recognitionRef.current = null;
       setStatus("idle");
+    }
+  }
+
+  function startCommandCapture() {
+    if (SPEECH_MODE === "browser") startBrowserRecognition();
+    else void startRecording();
+  }
+
+  function startBrowserRecognition() {
+    const RecognitionClass = recognitionConstructor();
+    if (!RecognitionClass || !supported || busyRef.current || recognitionRef.current) return;
+    const recognition = new RecognitionClass();
+    let failed = false;
+    let transcript = "";
+    recognitionRef.current = recognition;
+    recognition.lang = "vi-VN";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    setError("");
+    onTranscriptRef.current("");
+    recognition.onresult = (event) => {
+      transcript = Array.from(event.results, (result) => result[0]?.transcript || "").join(" ").trim();
+    };
+    recognition.onerror = (event) => {
+      if (event.error === "aborted") return;
+      failed = true;
+      setError(browserRecognitionError(event.error));
+    };
+    recognition.onend = () => {
+      if (recognitionRef.current !== recognition) return;
+      recognitionRef.current = null;
+      if (failed) {
+        setStatus("idle");
+        resumeWakeAfterDelay();
+        return;
+      }
+      if (!transcript) {
+        setStatus("idle");
+        setError("Không nhận diện được nội dung giọng nói.");
+        resumeWakeAfterDelay();
+        return;
+      }
+      onTranscriptRef.current(transcript);
+      setStatus("transcribing");
+      void onCommandRef.current(transcript)
+        .catch(() => setError("Không gửi được yêu cầu giọng nói."))
+        .finally(() => {
+          setStatus("idle");
+          resumeWakeAfterDelay();
+        });
+    };
+    try {
+      recognition.start();
+      setStatus("listening");
+    } catch {
+      recognitionRef.current = null;
+      setStatus("idle");
+      setError("Không khởi động được nhận dạng giọng nói của trình duyệt.");
     }
   }
 
@@ -223,19 +297,23 @@ export function useBrowserVoice({ busy, responseText, onCommand, onTranscript }:
   }
 
   function toggleCommand() {
-    if (status === "listening") stopRecording(true);
+    if (status === "listening") {
+      if (SPEECH_MODE === "browser") recognitionRef.current?.stop();
+      else stopRecording(true);
+    }
     else {
       wakeToCommandRef.current = Boolean(recognitionRef.current);
       if (recognitionRef.current) recognitionRef.current.stop();
-      else void startRecording();
+      else startCommandCapture();
     }
   }
 
   function stopListening() {
     wakeEnabledRef.current = false;
     setWakeEnabled(false);
-    recognitionRef.current?.abort();
+    const recognition = recognitionRef.current;
     recognitionRef.current = null;
+    recognition?.abort();
     stopRecording(false);
     setStatus("idle");
   }
@@ -244,17 +322,57 @@ export function useBrowserVoice({ busy, responseText, onCommand, onTranscript }:
     const enabled = !wakeEnabledRef.current;
     wakeEnabledRef.current = enabled;
     setWakeEnabled(enabled);
-    recognitionRef.current?.abort();
+    const recognition = recognitionRef.current;
     recognitionRef.current = null;
+    recognition?.abort();
     if (!enabled) setStatus("idle");
   }
 
   async function speak(text: string) {
     stopSpeaking();
+    setError("");
+    if (SPEECH_MODE === "browser") {
+      speakWithBrowser(text);
+      return;
+    }
+    await speakLocally(text);
+  }
+
+  function speakWithBrowser(text: string) {
+    if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
+      setError("Trình duyệt không hỗ trợ đọc văn bản.");
+      return;
+    }
+    setSynthesizing(true);
+    const utterance = new SpeechSynthesisUtterance(text);
+    const voices = window.speechSynthesis.getVoices();
+    utterance.lang = "vi-VN";
+    utterance.voice = voices.find((voice) => voice.lang.toLowerCase() === "vi-vn")
+      ?? voices.find((voice) => voice.lang.toLowerCase().startsWith("vi"))
+      ?? null;
+    utterance.onend = () => {
+      if (utteranceRef.current !== utterance) return;
+      utteranceRef.current = null;
+      setSpeaking(false);
+    };
+    utterance.onerror = (event) => {
+      if (utteranceRef.current !== utterance) return;
+      utteranceRef.current = null;
+      setSpeaking(false);
+      if (event.error !== "canceled" && event.error !== "interrupted") {
+        setError("Trình duyệt không đọc được phản hồi tiếng Việt.");
+      }
+    };
+    utteranceRef.current = utterance;
+    window.speechSynthesis.speak(utterance);
+    setSynthesizing(false);
+    setSpeaking(true);
+  }
+
+  async function speakLocally(text: string) {
     const controller = new AbortController();
     speechRequestRef.current = controller;
     setSynthesizing(true);
-    setError("");
     try {
       const response = await fetch(`${API_URL}/api/tts`, { ...jsonRequest("POST", { text }), signal: controller.signal });
       if (!response.ok) {
@@ -283,15 +401,36 @@ export function useBrowserVoice({ busy, responseText, onCommand, onTranscript }:
   function stopSpeaking() {
     speechRequestRef.current?.abort();
     speechRequestRef.current = null;
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    utteranceRef.current = null;
     audioRef.current?.pause();
     audioRef.current = null;
     if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
     audioUrlRef.current = "";
     setSpeaking(false);
+    setSynthesizing(false);
+  }
+
+  function resumeWakeAfterDelay() {
+    if (!wakeEnabledRef.current) return;
+    window.setTimeout(() => {
+      if (wakeEnabledRef.current && !busyRef.current) startWake();
+    }, 300);
   }
 
   return {
-    autoSpeak, error, speaking, synthesizing, status, supported, wakeEnabled, wakeSupported,
+    autoSpeak, error, mode: SPEECH_MODE, speaking, speechSupported, synthesizing, status, supported,
+    wakeEnabled, wakeSupported,
     setAutoSpeak, toggleCommand, speak, stopListening, stopSpeaking, toggleWake,
   };
+}
+
+function browserRecognitionError(error: string): string {
+  if (error === "not-allowed" || error === "service-not-allowed") {
+    return "Microphone hoặc dịch vụ nhận dạng bị chặn. Hãy kiểm tra quyền của trình duyệt.";
+  }
+  if (error === "audio-capture") return "Không tìm thấy microphone khả dụng.";
+  if (error === "no-speech") return "Không nghe thấy giọng nói. Hãy thử lại.";
+  if (error === "network") return "Dịch vụ nhận dạng của trình duyệt đang mất kết nối.";
+  return "Trình duyệt không nhận dạng được tiếng Việt.";
 }

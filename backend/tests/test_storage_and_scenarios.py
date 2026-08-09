@@ -1,9 +1,11 @@
+import asyncio
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from app.models import PreferenceCreate, PreferenceTargets
+from app.models import DeviceCommand, PreferenceCreate, PreferenceTargets, RoomSceneTargets
 from app.scenarios import ScenarioRepository
-from app.simulation import generate_baseline
+from app.simulation import SimulationEngine, generate_baseline
+from app.state import EventBroker
 from app.storage import Storage, write_generated_csv
 
 
@@ -148,3 +150,57 @@ def test_newest_explicit_preference_is_returned_first(tmp_path: Path) -> None:
     relevant = storage.relevant_preferences("working", now + timedelta(minutes=2))
 
     assert [item.id for item in relevant] == [newer.id, older.id]
+
+
+def test_manual_overrides_promote_implicit_preference_after_three_observations(tmp_path: Path) -> None:
+    async def run() -> None:
+        storage = Storage(tmp_path / "implicit-feedback.db")
+        storage.initialize()
+        engine = SimulationEngine(
+            seed=42,
+            tick_seconds=60,
+            minutes_per_tick=1,
+            storage=storage,
+            scenarios=ScenarioRepository(tmp_path / "scenarios"),
+            broker=EventBroker(),
+        )
+
+        await engine.command_device(
+            "main_light",
+            DeviceCommand(values={"brightness_percent": 70}, source="manual"),
+        )
+        assert storage.preferences() == []
+
+        assistant_scene = RoomSceneTargets(
+            change_mode="explicit",
+            main_light_brightness_percent=50,
+            reason="Đặt ánh sáng làm việc.",
+        )
+        for observation in range(1, 4):
+            await engine.command_scene(assistant_scene, source="assistant", allow_large_changes=True)
+            await engine.command_device(
+                "main_light",
+                DeviceCommand(values={"brightness_percent": 70}, source="manual"),
+            )
+
+            learned = storage.preferences()[0]
+            assert learned.source == "learned"
+            assert learned.observation_count == observation
+            assert learned.confirmed is (observation == 3)
+            assert learned.preferred_result.main_light_brightness_percent == 70
+            if observation < 3:
+                snapshot = await engine.snapshot()
+                assert storage.relevant_preferences("working", snapshot.timestamp) == []
+
+        snapshot = await engine.snapshot()
+        relevant = storage.relevant_preferences("working", snapshot.timestamp)
+        assert [preference.id for preference in relevant] == [learned.id]
+        assert learned.confidence == 0.98
+        with storage.connect() as connection:
+            evidence = connection.execute(
+                "SELECT COUNT(*) AS count FROM preference_evidence WHERE preference_id = ?",
+                (learned.id,),
+            ).fetchone()
+        assert evidence["count"] == 3
+
+    asyncio.run(run())
