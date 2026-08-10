@@ -11,6 +11,7 @@ Success means a presenter can:
 3. See transcript, context, room snapshot, preference retrieval, model tool request, validation, state changes, and final response.
 4. See the resident, apartment, devices, dashboard, charts, and history update together.
 5. Correct an assistant-set device value manually and see repeated matching overrides become learned preference memory.
+6. See exact values such as `50%`, `20°C`, or `2700K` applied without bounded-mode clipping, with final text matching committed state.
 
 ## User and environment
 
@@ -66,5 +67,5 @@ Each event includes status, timestamp, duration when known, safe input/output da
 
 - Real sensors or devices, moving robot, room editor, multi-user accounts.
 - Security, cameras, emergency systems, alerts, mobile push notifications.
-- Offline rule-based substitute for AI decisions.
+- Broad offline rule-based substitute for vague AI decisions; deterministic guards remain for explicit values and safety.
 - Photorealistic purchased assets in first version.

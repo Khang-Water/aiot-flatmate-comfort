@@ -36,8 +36,11 @@ MediaRecorder -> /api/asr        SpeechRecognition vi-VN
 
 - Own configuration, request lifecycle, REST endpoints, and SSE stream.
 - Infer deterministic context before contacting the model.
+- Retrieve context-scoped preferences before the model request.
+- Enforce explicit numeric targets and deterministic Vietnamese light-color mappings before scene validation.
 - Run OpenAI Responses tool loop and publish safe trace events.
 - Validate numerical targets before simulation mutations.
+- Build action confirmation from committed `ChangedValue` records instead of unverified model prose.
 - Record conversations, actions, trace summaries, preferences, and implicit feedback evidence.
 - Load backend TTS only when `TTS_ENABLED=true`; load faster-whisper separately when `LOCAL_ASR_ENABLED=true`.
 - Normalize Vietnamese TTS text through the same lexicon/VietNormalizer path before VieNeu, Supertonic, or Piper synthesis.
@@ -66,6 +69,7 @@ SQLite stores sensor samples, device actions, conversations, trace events, prefe
 - Optional dependency extras: local commands install `speech`; deployment installs only `piper`.
 - Ephemeral SQLite on Render Free: adequate for demo, not durable preference storage.
 - No automatic device changes outside explicit scenario, manual, or assistant actions.
+- Deterministic guards complement model tool use for high-confidence commands; they do not replace vague-intent reasoning.
 - Implicit learning records evidence only; applying a promoted preference still requires a later validated assistant action.
 
 ## Failure behavior

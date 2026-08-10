@@ -43,7 +43,7 @@ FlatMate Comfort là nguyên mẫu AIoT mô phỏng một căn hộ một phòng
 
 Backend được xây dựng bằng FastAPI, Pydantic và SQLite. Simulation engine chạy xác định với seed cố định, duy trì lịch sử 24 giờ và phát trạng thái qua Server-Sent Events (SSE). Frontend Next.js sử dụng React Three Fiber để dựng căn hộ, nội thất, người dùng, sensor overlay, dashboard và conversation history. Speech có hai mode: localhost dùng faster-whisper `small` trên CPU `int8`, VieNeu-TTS v3 Turbo ONNX `int8` và Supertonic fallback; bản Render Free dùng `SpeechRecognition` cho ASR và Piper `vi_VN-vais1000-medium` trên backend cho TTS.
 
-Kết quả kiểm tra tại thời điểm báo cáo gồm 51 test backend đạt, 1 test bỏ qua theo điều kiện môi trường, Ruff đạt, TypeScript đạt, production build và Docker smoke test thành công. Dataset baseline có 1.440 mẫu cảm biến, tương ứng một mẫu mỗi phút trong 24 giờ. Một lần chạy end-to-end trên kịch bản `hot_room` đã chuyển trạng thái từ AC tắt ở 27°C và quạt tắt sang AC bật ở 25°C, quạt mức 1; cửa sổ giữ đóng. TTS local greedy tạo câu 2,80 giây với thời gian trung bình 2,99 giây qua ba lượt; container Piper bị giới hạn đúng 512 MB và 0,1 CPU tạo câu 3,855 giây trong 17,12 giây ở lượt lazy-load đầu, 1,49 giây ở lượt warm và dùng 254,3 MiB RSS cho toàn service.
+Kết quả kiểm tra tại thời điểm báo cáo gồm 64 test backend đạt, 1 test bỏ qua theo điều kiện môi trường, Ruff đạt, TypeScript đạt, production build và Docker smoke test thành công. Dataset baseline có 1.440 mẫu cảm biến, tương ứng một mẫu mỗi phút trong 24 giờ. Một lần chạy end-to-end trên kịch bản `hot_room` đã chuyển trạng thái từ AC tắt ở 27°C và quạt tắt sang AC bật ở 25°C, quạt mức 1; cửa sổ giữ đóng. TTS local greedy tạo câu 2,80 giây với thời gian trung bình 2,99 giây qua ba lượt; container Piper bị giới hạn đúng 512 MB và 0,1 CPU tạo câu 3,855 giây trong 17,12 giây ở lượt lazy-load đầu, 1,49 giây ở lượt warm và dùng 254,3 MiB RSS cho toàn service.
 
 **Từ khóa:** AIoT, digital twin, smart apartment, personalization, LLM tool calling, context memory, sensor simulation, Vietnamese ASR, offline TTS.
 
@@ -336,6 +336,8 @@ Các ràng buộc liên thuộc:
 
 `change_mode="explicit"` dùng khi người dùng nêu giá trị rõ ràng. `change_mode="bounded"` dùng cho yêu cầu cảm tính; guardrail giới hạn mức thay đổi thay vì cho phép bước nhảy lớn.
 
+Backend không còn tin hoàn toàn vào mode do model chọn. Yêu cầu chứa giá trị cụ thể như `50%`, `20°C`, `mức 2` hoặc `2700K` được ép sang `explicit`. Với ánh sáng, các cụm tiếng Việt có độ chắc chắn cao được chuẩn hóa: vàng/trắng ấm là `2700K`, trắng trung tính là `4000K`, trắng lạnh là `6500K`. Nếu model bỏ qua tool hoặc gửi target đèn sai cho một lệnh rõ ràng, backend dựng scene tối thiểu từ intent đã chuẩn hóa. Phản hồi cuối sau action được sinh từ `ChangedValue` đã commit, nên không thể xác nhận màu hoặc mức sáng chưa thực sự áp dụng.
+
 ### 6.3. Observable trace
 
 Một request thường tạo chuỗi event:
@@ -588,14 +590,14 @@ Container benchmark bị giới hạn bằng `--memory=512m --cpus=0.1`, không 
 
 | Kiểm tra | Kết quả |
 | --- | --- |
-| Pytest | 51 passed, 1 skipped |
+| Pytest | 64 passed, 1 skipped |
 | Ruff | All checks passed |
 | Frontend domain checks | geometry, voice, trace, privacy, accessibility passed |
 | TypeScript | `tsc --noEmit` passed |
 | Next.js production build | compiled và prerendered thành công |
 | Draw.io architecture validation | 0 error; 2 edge-crossing warnings, không có edge đi qua node |
 
-Test bao phủ contract, scenario loading, deterministic reset, history clamp, atomic command, assistant tool loop, preference lifecycle, session isolation, implicit candidate gating và promotion sau ba manual override, TTS text normalization, fallback, VieNeu/Piper initialization failure cache, Piper WAV contract và giới hạn text runtime.
+Test bao phủ contract, scenario loading, deterministic reset, history clamp, atomic command, assistant tool loop, năm context, explicit-value enforcement, màu đèn tiếng Việt, work-scene fallback, preference isolation, correction áp dụng ngay, implicit candidate gating và promotion brightness/color sau ba manual override, TTS text normalization, fallback, VieNeu/Piper initialization failure cache, Piper WAV contract và giới hạn text runtime.
 
 ## 11. Đánh giá
 

@@ -204,3 +204,43 @@ def test_manual_overrides_promote_implicit_preference_after_three_observations(t
         assert evidence["count"] == 3
 
     asyncio.run(run())
+
+
+def test_manual_color_overrides_learn_warm_light_only_for_matching_context(tmp_path: Path) -> None:
+    async def run() -> None:
+        storage = Storage(tmp_path / "implicit-color-feedback.db")
+        storage.initialize()
+        engine = SimulationEngine(
+            seed=42,
+            tick_seconds=60,
+            minutes_per_tick=1,
+            storage=storage,
+            scenarios=ScenarioRepository(tmp_path / "scenarios"),
+            broker=EventBroker(),
+        )
+        assistant_scene = RoomSceneTargets(
+            change_mode="explicit",
+            main_light_color_temperature_kelvin=5000,
+            reason="Đặt ánh sáng trắng khi làm việc.",
+        )
+
+        for observation in range(1, 4):
+            await engine.command_scene(assistant_scene, source="assistant", allow_large_changes=True)
+            await engine.command_device(
+                "main_light",
+                DeviceCommand(values={"color_temperature_kelvin": 2700}, source="manual"),
+            )
+
+            learned = storage.preferences()[0]
+            assert learned.source == "learned"
+            assert learned.observation_count == observation
+            assert learned.confirmed is (observation == 3)
+            assert learned.preferred_result.main_light_color_temperature_kelvin == 2700
+
+        snapshot = await engine.snapshot()
+        assert [item.id for item in storage.relevant_preferences("working", snapshot.timestamp)] == [
+            learned.id
+        ]
+        assert storage.relevant_preferences("relaxing", snapshot.timestamp) == []
+
+    asyncio.run(run())

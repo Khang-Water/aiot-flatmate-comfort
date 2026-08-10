@@ -7,8 +7,16 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
-from app.assistant import PROVIDER_TOOLS, TOOLS, AssistantOrchestrator
-from app.models import AssistantRequest, PreferenceCreate, PreferenceTargets
+from app.assistant import (
+    PROVIDER_TOOLS,
+    TOOLS,
+    AssistantOrchestrator,
+    action_confirmation,
+    explicit_light_scene_targets,
+    infer_request_context,
+    request_requires_explicit_mode,
+)
+from app.models import AssistantRequest, ChangedValue, DeviceCommand, PreferenceCreate, PreferenceTargets
 from app.scenarios import ScenarioRepository
 from app.simulation import SimulationEngine
 from app.state import EventBroker
@@ -157,6 +165,41 @@ def test_chat_completions_tool_loop_returns_final_response(tmp_path: Path) -> No
     asyncio.run(run())
 
 
+def test_chat_completions_accepts_null_string_preference_sentinel(tmp_path: Path) -> None:
+    async def run() -> None:
+        arguments = scene_arguments()
+        arguments["applied_preference_id"] = "null"
+        client = FakeChatClient([
+            chat_response(chat_tool_call("set_room_scene", arguments, "call-1")),
+            chat_response(text="Đã đặt điều hòa 25 độ."),
+        ])
+        orchestrator, engine, storage = build_orchestrator(tmp_path, client, "chat_completions")
+
+        await orchestrator.submit(
+            AssistantRequest(text="Đặt điều hòa 25 độ.", session_id="test")
+        )
+        await orchestrator.wait_idle()
+
+        assert (await engine.snapshot()).devices.ac.temperature_c == 25
+        assert storage.conversations(1)[0].status == "completed"
+
+    asyncio.run(run())
+
+
+def test_shutdown_confirmation_does_not_claim_work_scene_is_ready() -> None:
+    reply = action_confirmation(
+        [
+            ChangedValue(path="devices.main_light.power", before=True, after=False),
+            ChangedValue(path="devices.main_light.brightness_percent", before=65, after=0),
+        ],
+        context="working",
+        preference_saved=False,
+        preference_used=False,
+    )
+
+    assert "Không gian làm việc đã sẵn sàng" not in reply
+
+
 def test_openai_function_tool_schemas_are_valid_json_schema() -> None:
     for tool in TOOLS:
         Draft202012Validator.check_schema(tool["parameters"])
@@ -183,6 +226,295 @@ def test_provider_tool_schemas_use_gemini_compatible_subset() -> None:
 
     scene = next(tool for tool in PROVIDER_TOOLS if tool["name"] == "set_room_scene")
     assert scene["parameters"]["required"] == ["change_mode", "reason"]
+
+
+def test_request_context_is_deterministic_for_supported_scenes() -> None:
+    cases = {
+        "Tôi chuẩn bị làm việc.": "working",
+        "Cho tôi thư giãn một chút.": "relaxing",
+        "Tôi đi ngủ đây.": "sleeping",
+        "Tôi muốn đọc sách trên giường.": "reading_in_bed",
+        "Tôi chuẩn bị ra ngoài.": "away",
+        "Giữ nguyên như hiện tại.": "working",
+    }
+
+    for text, expected in cases.items():
+        assert infer_request_context(text, "working") == expected
+
+
+def test_explicit_light_targets_cover_color_device_and_non_commands() -> None:
+    assert explicit_light_scene_targets("Chỉnh đèn vàng ở mức 50%.") == {
+        "main_light_power": True,
+        "main_light_brightness_percent": 50,
+        "main_light_color_temperature_kelvin": 2700,
+    }
+    assert explicit_light_scene_targets("Đặt đèn đầu giường trắng lạnh 30 phần trăm.") == {
+        "bedside_light_power": True,
+        "bedside_light_brightness_percent": 30,
+        "bedside_light_color_temperature_kelvin": 6500,
+    }
+    assert explicit_light_scene_targets("Đèn chính hiện tại bao nhiêu phần trăm?") == {}
+    assert explicit_light_scene_targets("Tôi muốn biết đèn vàng 50% có phù hợp không.") == {}
+    assert explicit_light_scene_targets("Hãy nhớ đèn vàng 50% khi làm việc.") == {}
+    assert explicit_light_scene_targets("Từ giờ khi làm việc luôn để đèn vàng 50%.") == {}
+    assert explicit_light_scene_targets("Đèn vàng trong lúc làm việc không thực thi được.") == {}
+    assert explicit_light_scene_targets("Không bật đèn.") == {}
+    assert request_requires_explicit_mode("Đặt điều hòa 20 độ.") is True
+    assert request_requires_explicit_mode("Đặt quạt mức 2.") is True
+    assert request_requires_explicit_mode("Tôi muốn biết 20 độ có phù hợp không.") is False
+    assert request_requires_explicit_mode("Làm phòng lạnh hơn một chút.") is False
+
+
+def test_explicit_light_request_executes_when_model_skips_tool(tmp_path: Path) -> None:
+    async def run() -> None:
+        client = FakeClient([response(text="Tôi chưa thực hiện thay đổi.")])
+        orchestrator, engine, storage = build_orchestrator(tmp_path, client)
+
+        await orchestrator.submit(
+            AssistantRequest(text="Chỉnh đèn vàng ở mức 50%.", session_id="test")
+        )
+        await orchestrator.wait_idle()
+
+        snapshot = await engine.snapshot()
+        conversation = storage.conversations(1)[0]
+        assert snapshot.devices.main_light.power is True
+        assert snapshot.devices.main_light.brightness_percent == 50
+        assert snapshot.devices.main_light.color_temperature_kelvin == 2700
+        assert "50%" in conversation.assistant_text
+        assert "2700K" in conversation.assistant_text
+        assert "chưa thực hiện" not in conversation.assistant_text.casefold()
+
+    asyncio.run(run())
+
+
+def test_explicit_light_request_survives_model_tool_loop_limit(tmp_path: Path) -> None:
+    async def run() -> None:
+        client = FakeClient(
+            [response(tool_call("get_room_snapshot", {}, f"call-{index}")) for index in range(5)]
+        )
+        orchestrator, engine, storage = build_orchestrator(tmp_path, client)
+
+        await orchestrator.submit(
+            AssistantRequest(text="Chỉnh đèn vàng ở mức 50%.", session_id="test")
+        )
+        await orchestrator.wait_idle()
+
+        snapshot = await engine.snapshot()
+        assert snapshot.devices.main_light.brightness_percent == 50
+        assert snapshot.devices.main_light.color_temperature_kelvin == 2700
+        assert storage.conversations(1)[0].status == "completed"
+
+    asyncio.run(run())
+
+
+def test_explicit_light_request_corrects_wrong_bounded_tool_call(tmp_path: Path) -> None:
+    async def run() -> None:
+        client = FakeClient(
+            [
+                response(
+                    tool_call(
+                        "set_room_scene",
+                        {
+                            "change_mode": "bounded",
+                            "main_light_power": True,
+                            "main_light_brightness_percent": 20,
+                            "reason": "Bật đèn nhẹ.",
+                        },
+                        "call-1",
+                    )
+                ),
+                response(text="Đã bật đèn 20% nhưng chưa đổi màu."),
+            ]
+        )
+        orchestrator, engine, storage = build_orchestrator(tmp_path, client)
+
+        accepted = await orchestrator.submit(
+            AssistantRequest(text="Chỉnh đèn vàng ở mức 50%.", session_id="test")
+        )
+        await orchestrator.wait_idle()
+
+        snapshot = await engine.snapshot()
+        conversation = storage.conversations(1)[0]
+        with storage.connect() as connection:
+            trace_data = connection.execute(
+                "SELECT data_json FROM assistant_trace_events "
+                "WHERE request_id = ? AND stage = 'validation_completed'",
+                (accepted.request_id,),
+            ).fetchone()[0]
+        resolved = json.loads(trace_data)["resolved_targets"]
+        assert resolved["change_mode"] == "explicit"
+        assert resolved["main_light_brightness_percent"] == 50
+        assert resolved["main_light_color_temperature_kelvin"] == 2700
+        assert snapshot.devices.main_light.brightness_percent == 50
+        assert snapshot.devices.main_light.color_temperature_kelvin == 2700
+        assert "20%" not in conversation.assistant_text
+
+    asyncio.run(run())
+
+
+def test_explicit_numeric_request_cannot_be_limited_as_bounded(tmp_path: Path) -> None:
+    async def run() -> None:
+        client = FakeClient(
+            [
+                response(
+                    tool_call(
+                        "set_room_scene",
+                        {
+                            "change_mode": "bounded",
+                            "ac_temperature_c": 20,
+                            "reason": "Làm lạnh phòng.",
+                        },
+                        "call-1",
+                    )
+                ),
+                response(text="Đã đặt điều hòa 20 độ."),
+            ]
+        )
+        orchestrator, engine, storage = build_orchestrator(tmp_path, client)
+
+        await orchestrator.submit(AssistantRequest(text="Đặt điều hòa 20 độ.", session_id="test"))
+        await orchestrator.wait_idle()
+
+        snapshot = await engine.snapshot()
+        assert snapshot.devices.ac.temperature_c == 20
+        assert "20°C" in storage.conversations(1)[0].assistant_text
+
+    asyncio.run(run())
+
+
+def test_current_explicit_value_overrides_conflicting_stored_preference(tmp_path: Path) -> None:
+    async def run() -> None:
+        client = FakeClient([])
+        orchestrator, engine, storage = build_orchestrator(tmp_path, client)
+        preference = storage.create_preference(
+            PreferenceCreate(
+                context="working",
+                requested_intent="ánh sáng khi làm việc",
+                preferred_result=PreferenceTargets(
+                    main_light_power=True,
+                    main_light_brightness_percent=70,
+                    main_light_color_temperature_kelvin=4000,
+                ),
+            ),
+            datetime.now(UTC),
+        )
+        client.responses.responses.extend(
+            [
+                response(
+                    tool_call(
+                        "set_room_scene",
+                        {
+                            "change_mode": "explicit",
+                            "main_light_power": True,
+                            "main_light_brightness_percent": 70,
+                            "main_light_color_temperature_kelvin": 4000,
+                            "applied_preference_id": preference.id,
+                            "reason": "Áp dụng sở thích cũ.",
+                        },
+                        "call-1",
+                    )
+                ),
+                response(text="Đã áp dụng sở thích cũ."),
+            ]
+        )
+
+        await orchestrator.submit(
+            AssistantRequest(text="Chỉnh đèn vàng ở mức 50%.", session_id="test")
+        )
+        await orchestrator.wait_idle()
+
+        snapshot = await engine.snapshot()
+        assert snapshot.devices.main_light.brightness_percent == 50
+        assert snapshot.devices.main_light.color_temperature_kelvin == 2700
+        assert storage.get_preference(preference.id).last_used_at is None
+        assert "áp dụng sở thích" not in storage.conversations(1)[0].assistant_text.casefold()
+
+    asyncio.run(run())
+
+
+def test_work_preparation_builds_complete_low_light_scene(tmp_path: Path) -> None:
+    async def run() -> None:
+        client = FakeClient([response(text="Đã bật máy tính.")])
+        orchestrator, engine, storage = build_orchestrator(tmp_path, client)
+        await engine.command_device(
+            "desk_computer",
+            DeviceCommand(values={"state": "off"}, source="manual"),
+        )
+        await engine.command_device(
+            "monitor",
+            DeviceCommand(values={"state": "off"}, source="manual"),
+        )
+        await engine.command_device(
+            "main_light",
+            DeviceCommand(values={"brightness_percent": 0}, source="manual"),
+        )
+
+        await orchestrator.submit(AssistantRequest(text="Tôi chuẩn bị làm việc.", session_id="test"))
+        await orchestrator.wait_idle()
+
+        snapshot = await engine.snapshot()
+        conversation = storage.conversations(1)[0]
+        assert snapshot.power.smart_plugs["desk_computer"].state == "on"
+        assert snapshot.power.smart_plugs["monitor"].state == "on"
+        assert snapshot.devices.main_light.power is True
+        assert snapshot.devices.main_light.brightness_percent == 70
+        assert snapshot.devices.main_light.color_temperature_kelvin == 4000
+        assert "Không gian làm việc đã sẵn sàng" in conversation.assistant_text
+
+    asyncio.run(run())
+
+
+def test_work_preparation_applies_context_preference_and_marks_used(tmp_path: Path) -> None:
+    async def run() -> None:
+        client = FakeClient([response(text="Đã chuẩn bị làm việc.")])
+        orchestrator, engine, storage = build_orchestrator(tmp_path, client)
+        preference = storage.create_preference(
+            PreferenceCreate(
+                context="working",
+                requested_intent="ánh sáng khi làm việc",
+                preferred_result=PreferenceTargets(
+                    main_light_power=True,
+                    main_light_brightness_percent=50,
+                    main_light_color_temperature_kelvin=2700,
+                ),
+            ),
+            datetime.now(UTC),
+        )
+
+        await orchestrator.submit(AssistantRequest(text="Tôi chuẩn bị làm việc.", session_id="test"))
+        await orchestrator.wait_idle()
+
+        snapshot = await engine.snapshot()
+        conversation = storage.conversations(1)[0]
+        assert snapshot.devices.main_light.brightness_percent == 50
+        assert snapshot.devices.main_light.color_temperature_kelvin == 2700
+        assert storage.get_preference(preference.id).last_used_at is not None
+        assert "áp dụng sở thích" in conversation.assistant_text
+
+    asyncio.run(run())
+
+
+def test_working_preference_is_not_injected_into_relaxing_context(tmp_path: Path) -> None:
+    async def run() -> None:
+        client = FakeClient([response(text="Bạn có thể thư giãn với trạng thái hiện tại.")])
+        orchestrator, _, storage = build_orchestrator(tmp_path, client)
+        preference = storage.create_preference(
+            PreferenceCreate(
+                context="working",
+                requested_intent="ánh sáng khi làm việc",
+                preferred_result=PreferenceTargets(main_light_brightness_percent=50),
+            ),
+            datetime.now(UTC),
+        )
+
+        await orchestrator.submit(AssistantRequest(text="Tôi muốn thư giãn.", session_id="test"))
+        await orchestrator.wait_idle()
+
+        prompt = client.responses.calls[0]["input"][-1]["content"]
+        assert "Context yêu cầu: relaxing" in prompt
+        assert preference.id not in prompt
+
+    asyncio.run(run())
 
 
 def test_tool_loop_commits_scene_after_final_response(tmp_path: Path) -> None:
@@ -328,19 +660,20 @@ def test_llm_correction_is_saved_and_available_on_next_request(tmp_path: Path) -
         client = FakeClient([
             response(tool_call("record_preference_correction", {
                 "context": "working",
-                "requested_intent": "độ sáng khi làm việc",
+                "requested_intent": "ánh sáng khi làm việc",
                 "preferred_result": preference_targets(
                     main_light_power=True,
                     main_light_brightness_percent=70,
+                    main_light_color_temperature_kelvin=2700,
                 ),
             }, "call-1")),
-            response(text="Đã ghi nhớ đèn 70 phần trăm khi làm việc."),
+            response(text="Đã ghi nhớ đèn vàng 70 phần trăm khi làm việc."),
         ])
         orchestrator, engine, storage = build_orchestrator(tmp_path, client)
 
         await orchestrator.submit(
             AssistantRequest(
-                text="Không, khi làm việc tôi muốn đèn 70 phần trăm.",
+                text="Không, khi làm việc tôi muốn đèn vàng 70 phần trăm.",
                 session_id="test",
             )
         )
@@ -349,6 +682,10 @@ def test_llm_correction_is_saved_and_available_on_next_request(tmp_path: Path) -
         learned = storage.preferences()[0]
         assert learned.source == "user_correction"
         assert learned.confirmed is True
+        immediate = await engine.snapshot()
+        assert immediate.devices.main_light.brightness_percent == 70
+        assert immediate.devices.main_light.color_temperature_kelvin == 2700
+        assert "ghi nhớ chỉnh sửa" in storage.conversations(1)[0].assistant_text
 
         arguments = scene_arguments()
         arguments.update({
@@ -356,8 +693,9 @@ def test_llm_correction_is_saved_and_available_on_next_request(tmp_path: Path) -
             "fan_speed": None,
             "main_light_power": True,
             "main_light_brightness_percent": 70,
+            "main_light_color_temperature_kelvin": 2700,
             "applied_preference_id": learned.id,
-            "reason": "Áp dụng độ sáng làm việc đã học.",
+            "reason": "Áp dụng ánh sáng làm việc đã học.",
         })
         client.responses.responses.extend([
             response(tool_call("get_relevant_preferences", {"context": "working"}, "call-2")),
@@ -373,6 +711,7 @@ def test_llm_correction_is_saved_and_available_on_next_request(tmp_path: Path) -
         snapshot = await engine.snapshot()
         assert snapshot.devices.main_light.power is True
         assert snapshot.devices.main_light.brightness_percent == 70
+        assert snapshot.devices.main_light.color_temperature_kelvin == 2700
         assert storage.get_preference(learned.id).last_used_at is not None
         outputs = [
             item["output"] for item in client.responses.calls[3]["input"]
@@ -429,6 +768,7 @@ def test_assistant_can_save_explicit_preference(tmp_path: Path) -> None:
                 "preferred_result": preference_targets(
                     main_light_power=True,
                     main_light_brightness_percent=70,
+                    main_light_color_temperature_kelvin=2700,
                 ),
             }, "call-1")),
             response(text="Đã nhớ độ sáng khi làm việc."),
@@ -444,5 +784,6 @@ def test_assistant_can_save_explicit_preference(tmp_path: Path) -> None:
         assert len(saved) == 1
         assert saved[0].source == "explicit"
         assert saved[0].preferred_result.main_light_brightness_percent == 70
+        assert saved[0].preferred_result.main_light_color_temperature_kelvin == 2700
 
     asyncio.run(run())
