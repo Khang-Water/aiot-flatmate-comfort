@@ -201,6 +201,26 @@ def test_shutdown_confirmation_does_not_claim_work_scene_is_ready() -> None:
     assert "Không gian làm việc đã sẵn sàng" not in reply
 
 
+def test_work_ventilation_confirmation_does_not_mention_visual_preference() -> None:
+    snapshot = initial_snapshot()
+    snapshot = snapshot.model_copy(
+        update={"openings": snapshot.openings.model_copy(update={"window_state": "open"})}
+    )
+    reply = action_confirmation(
+        [
+            ChangedValue(path="devices.ac.power", before=True, after=False),
+            ChangedValue(path="openings.window_state", before="closed", after="open"),
+        ],
+        snapshot=snapshot,
+        preparation_context="working",
+        preference_saved=False,
+        preference_used=False,
+    )
+
+    assert "Không gian làm việc đã sẵn sàng" in reply
+    assert "vừa mắt" not in reply
+
+
 def test_sleep_scene_normalizes_dependencies_and_confirms_ready(tmp_path: Path) -> None:
     async def run() -> None:
         client = FakeClient([

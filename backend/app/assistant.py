@@ -333,7 +333,12 @@ def action_confirmation(
         co2_ppm = f"{snapshot.environment.co2_ppm:,.0f}".replace(",", ".")
         return f"{response} CO₂ vẫn cao khoảng {co2_ppm} ppm; nên mở cửa sổ khi có thể."
     if facts and preparation_context == "working":
-        return f"{response} Không gian làm việc đã sẵn sàng; nếu thấy vừa mắt, bạn có thể bảo tôi ghi nhớ mức này."
+        light_adjusted = snapshot.devices.main_light.power and any(
+            change.path.startswith("devices.main_light.") for change in changes
+        )
+        if light_adjusted:
+            return f"{response} Không gian làm việc đã sẵn sàng; nếu thấy vừa mắt, bạn có thể bảo tôi ghi nhớ mức này."
+        return f"{response} Không gian làm việc đã sẵn sàng."
     if facts and preparation_context == "sleeping":
         return f"{response} Không gian ngủ đã sẵn sàng."
     return response
