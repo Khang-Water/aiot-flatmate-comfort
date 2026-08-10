@@ -24,13 +24,13 @@ Hệ thống không sử dụng thiết bị vật lý. MQTT, ESP32, Home Assist
 
 Sản phẩm gồm bộ máy mô phỏng tất định, lịch sử SQLite, bộ nhớ sở thích có cấu trúc, implicit-feedback từ manual override, cập nhật trạng thái qua SSE, bản sao số căn hộ một phòng ngủ, lớp phủ cảm biến và thiết bị, chọn ngữ cảnh hiện diện, bảng theo dõi 24 giờ, điều khiển có quy tắc bảo vệ và voice mode theo môi trường. Localhost dùng `MediaRecorder`, faster-whisper, VieNeu và Supertonic; bản Render dùng `SpeechRecognition` cho ASR và Piper `vi_VN-vais1000-medium` trên backend cho TTS tiếng Việt ổn định.
 
-Backend xác định context và preference trước khi gọi model, ép lệnh có giá trị cụ thể sang `explicit`, chuẩn hóa đèn vàng/trắng ấm thành `2700K`, và sinh câu xác nhận từ thay đổi thực tế. Khi chuẩn bị làm việc trong phòng thiếu sáng, scene tối thiểu bật máy tính, màn hình và đèn chính; preference đúng context được ưu tiên.
+Backend xác định context và preference trước khi gọi model, ép lệnh có giá trị cụ thể sang `explicit`, chuẩn hóa đèn vàng/trắng ấm thành `2700K`, và sinh câu xác nhận từ thay đổi thực tế. Khi chuẩn bị làm việc trong phòng thiếu sáng, scene tối thiểu bật máy tính, màn hình và đèn chính; khi chuẩn bị làm việc hoặc ngủ với CO₂ từ 1000 ppm, scene mở cửa sổ và tắt AC trừ khi người dùng yêu cầu giữ cửa đóng. Preference đúng context được ưu tiên.
 
 Khi người dùng chỉnh thủ công đúng thuộc tính vừa được trợ lý thay đổi trong vòng 30 phút mô phỏng, backend lưu một evidence theo context hiện tại. Ba override có cùng target mới kích hoạt preference nguồn `learned`; một chỉnh sửa đơn lẻ chưa ảnh hưởng request sau.
 
 Thao tác không hợp lệ hoặc yêu cầu trợ lý thất bại không làm thay đổi trạng thái căn hộ. Khi chưa cấu hình `OPENAI_API_KEY`, mô phỏng, bảng theo dõi và điều khiển thủ công vẫn hoạt động; local speech endpoint vẫn có thể kiểm tra độc lập.
 
-Kết quả kiểm tra hiện tại: 62 phép kiểm thử phía máy chủ đạt, 1 phép kiểm thử phụ thuộc môi trường được bỏ qua; Ruff, kiểm tra miền dữ liệu giao diện, TypeScript, bản dựng sản xuất và Docker smoke test đều đạt.
+Kết quả kiểm tra hiện tại: 70 phép kiểm thử phía máy chủ đạt, 1 phép kiểm thử phụ thuộc môi trường được bỏ qua; Ruff, kiểm tra miền dữ liệu giao diện, TypeScript, bản dựng sản xuất và Docker smoke test đều đạt.
 
 ## Công nghệ
 

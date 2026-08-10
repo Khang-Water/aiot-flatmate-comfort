@@ -65,14 +65,30 @@ LIGHT_FIELDS = {
     ),
 }
 EMPTY_PREFERENCE_IDS = {"", ".", "n/a", "na", "none", "null", "undefined"}
+POWER_LEVEL_FIELDS = (
+    ("fan_power", "fan_speed"),
+    ("main_light_power", "main_light_brightness_percent"),
+    ("bedside_light_power", "bedside_light_brightness_percent"),
+    ("air_purifier_power", "air_purifier_speed"),
+)
+POWER_LEVEL_PATHS = (
+    ("devices.fan.power", "devices.fan.speed"),
+    ("devices.main_light.power", "devices.main_light.brightness_percent"),
+    ("devices.bedside_light.power", "devices.bedside_light.brightness_percent"),
+    ("devices.air_purifier.power", "devices.air_purifier.speed"),
+)
+PREPARATION_QUESTION_TERMS = ("?", "có nên", "có cần", "có ổn", "thì sao", "sẽ thế nào")
 
 
 def infer_request_context(text: str, fallback: Context) -> Context:
     lowered = text.casefold()
-    for context, terms in CONTEXT_TERMS:
-        if any(term in lowered for term in terms):
-            return context
-    return fallback
+    matches = [
+        (lowered.rfind(term), len(term), context)
+        for context, terms in CONTEXT_TERMS
+        for term in terms
+        if term in lowered
+    ]
+    return max(matches, key=lambda match: (match[0], match[1]))[2] if matches else fallback
 
 
 def explicit_light_scene_targets(text: str) -> dict[str, Any]:
@@ -148,10 +164,22 @@ def explicit_light_scene_targets(text: str) -> dict[str, Any]:
 
 def is_work_preparation(text: str) -> bool:
     lowered = text.casefold()
+    if any(term in lowered for term in PREPARATION_QUESTION_TERMS):
+        return False
     return any(
         phrase in lowered
         for phrase in ("chuẩn bị làm việc", "bắt đầu làm việc", "vào làm việc", "làm việc đây")
     ) and not any(phrase in lowered for phrase in ("không làm việc", "chưa làm việc"))
+
+
+def is_sleep_preparation(text: str) -> bool:
+    lowered = text.casefold()
+    if any(term in lowered for term in PREPARATION_QUESTION_TERMS):
+        return False
+    return any(
+        phrase in lowered
+        for phrase in ("chuẩn bị ngủ", "đi ngủ", "ngủ đây", "đến giờ ngủ")
+    ) and not any(phrase in lowered for phrase in ("không ngủ", "chưa ngủ"))
 
 
 def request_requires_explicit_mode(text: str) -> bool:
@@ -172,22 +200,42 @@ def request_scene_overrides(
     overrides: dict[str, Any] = {}
     applied_preference_id: str | None = None
     light_targets = explicit_light_scene_targets(text)
+    lowered = text.casefold()
+    preparing_for_work = is_work_preparation(text)
+    preparing_for_sleep = is_sleep_preparation(text)
+    keep_window_closed = any(
+        phrase in lowered
+        for phrase in (
+            "không mở cửa sổ",
+            "đừng mở cửa sổ",
+            "giữ cửa sổ đóng",
+            "để cửa sổ đóng",
+        )
+    )
 
-    if is_work_preparation(text):
+    if preparing_for_work:
         overrides.update(desk_computer_power=True, monitor_power=True)
-        lowered = text.casefold()
-        if snapshot.environment.ambient_light_lux < 300 and not any(
+        keep_main_light_off = any(
             phrase in lowered for phrase in ("không bật đèn", "đừng bật đèn", "không cần đèn")
-        ):
+        )
+        if keep_main_light_off:
+            overrides.update(main_light_power=False, main_light_brightness_percent=0)
+        elif snapshot.environment.ambient_light_lux < 300:
             overrides.update(
                 main_light_power=True,
                 main_light_brightness_percent=70,
                 main_light_color_temperature_kelvin=4000,
             )
-        if relevant_preferences and not light_targets:
+        if relevant_preferences and not light_targets and not keep_main_light_off:
             preference = relevant_preferences[0]
             overrides.update(preference.preferred_result.model_dump(exclude_none=True))
             applied_preference_id = preference.id
+
+    if preparing_for_work or preparing_for_sleep:
+        if keep_window_closed:
+            overrides.update(window_state="closed")
+        elif snapshot.environment.co2_ppm >= 1_000:
+            overrides.update(window_state="open", ac_power=False)
 
     overrides.update(light_targets)
     return overrides, applied_preference_id
@@ -209,6 +257,13 @@ def resolve_scene_arguments(
         resolved["change_mode"] = "explicit"
     if overrides and not resolved.get("reason"):
         resolved["reason"] = "Thực hiện giá trị rõ ràng người dùng đã yêu cầu."
+    for power_field, level_field in POWER_LEVEL_FIELDS:
+        if resolved.get(power_field) is False:
+            resolved[level_field] = 0
+        elif resolved.get(power_field) is True and resolved.get(level_field) == 0:
+            resolved[level_field] = None
+    if resolved.get("window_state") == "open":
+        resolved["ac_power"] = False
     return resolved
 
 
@@ -234,31 +289,53 @@ def snapshot_satisfies_preference(snapshot: RoomSnapshot, preference: Preference
 def action_confirmation(
     changes: list[ChangedValue],
     *,
-    context: Context,
+    snapshot: RoomSnapshot,
+    preparation_context: Context | None,
     preference_saved: bool,
     preference_used: bool,
 ) -> str:
-    facts = [fact for change in changes if (fact := _change_fact(change))]
+    ventilation_needed = (
+        preparation_context is not None
+        and snapshot.environment.co2_ppm >= 1_000
+        and snapshot.openings.window_state == "closed"
+    )
+    suppressed_level_paths = {
+        level_path
+        for power_path, level_path in POWER_LEVEL_PATHS
+        if any(change.path == power_path and change.after is False for change in changes)
+    }
+    facts = [
+        fact
+        for change in changes
+        if change.path not in suppressed_level_paths and (fact := _change_fact(change))
+    ]
     if not facts:
-        response = "Thiết bị đã ở đúng trạng thái bạn yêu cầu, nên tôi giữ nguyên để tránh thay đổi thừa."
+        if preparation_context == "working" and not ventilation_needed:
+            response = (
+                "Không gian làm việc đã sẵn sàng; máy tính và màn hình đang bật, "
+                "không cần thay đổi thêm."
+            )
+        elif preparation_context == "working":
+            response = "Máy tính và màn hình đang bật, nhưng chất lượng không khí chưa phù hợp."
+        elif preparation_context == "sleeping" and not ventilation_needed:
+            response = "Không gian ngủ đã ở đúng thiết lập, nên tôi giữ nguyên để tránh thay đổi thừa."
+        elif preparation_context == "sleeping":
+            response = "Các thiết bị ngủ đã ở đúng thiết lập, nhưng chất lượng không khí chưa phù hợp."
+        else:
+            response = "Thiết bị đã ở đúng trạng thái bạn yêu cầu, nên tôi giữ nguyên để tránh thay đổi thừa."
     else:
         response = f"Tôi đã hoàn tất: {'; '.join(facts)}."
     if preference_saved:
-        return f"{response} Tôi cũng đã ghi nhớ chỉnh sửa này cho đúng ngữ cảnh."
-    if preference_used:
-        return f"{response} Tôi cũng đã áp dụng sở thích phù hợp đã ghi nhớ cho bạn."
-    main_light_turned_off = any(
-        change.path == "devices.main_light.power" and change.after is False
-        for change in changes
-    )
-    work_light_prepared = not main_light_turned_off and any(
-        change.path == "devices.main_light.power" and change.after is True
-        or change.path == "devices.main_light.brightness_percent" and change.after > 0
-        or change.path == "devices.main_light.color_temperature_kelvin"
-        for change in changes
-    )
-    if context == "working" and work_light_prepared:
+        response = f"{response} Tôi cũng đã ghi nhớ chỉnh sửa này cho đúng ngữ cảnh."
+    elif preference_used:
+        response = f"{response} Tôi cũng đã áp dụng sở thích phù hợp đã ghi nhớ cho bạn."
+    if ventilation_needed:
+        co2_ppm = f"{snapshot.environment.co2_ppm:,.0f}".replace(",", ".")
+        return f"{response} CO₂ vẫn cao khoảng {co2_ppm} ppm; nên mở cửa sổ khi có thể."
+    if facts and preparation_context == "working":
         return f"{response} Không gian làm việc đã sẵn sàng; nếu thấy vừa mắt, bạn có thể bảo tôi ghi nhớ mức này."
+    if facts and preparation_context == "sleeping":
+        return f"{response} Không gian ngủ đã sẵn sàng."
     return response
 
 
@@ -290,6 +367,10 @@ def _change_fact(change: ChangedValue) -> str | None:
     if path == "devices.air_purifier.speed":
         return f"máy lọc không khí mức {value}"
     if path == "devices.curtain.position_percent":
+        if value == 0:
+            return "rèm đóng"
+        if value == 100:
+            return "rèm mở hoàn toàn"
         return f"rèm mở {value}%"
     if path == "openings.window_state":
         return f"cửa sổ {'mở' if value == 'open' else 'đóng'}"
@@ -576,6 +657,11 @@ Mục tiêu:
 - Với đèn: vàng/trắng ấm = 2700K; trắng trung tính = 4000K; trắng lạnh = 6500K.
 - Khi người dùng chuẩn bị làm việc, bật máy tính và màn hình; nếu ánh sáng dưới 300 lux thì chuẩn bị
   đèn chính 70%, 4000K, trừ khi người dùng hoặc preference yêu cầu khác.
+- Khi người dùng chuẩn bị ngủ, tắt máy tính, màn hình và đèn chính; đóng rèm bằng
+  curtain_position_percent=0. Nếu cần đèn đầu giường, dùng ánh sáng 2700K ở mức thấp 10–20%.
+  Không mở rèm 100% trừ khi người dùng yêu cầu. Nếu CO₂ từ 1000 ppm trở lên, mở cửa sổ và tắt AC
+  để thông gió trước khi ngủ; máy lọc không khí không thay thế thông gió CO₂. Nếu người dùng nói rõ
+  không mở cửa sổ, tôn trọng yêu cầu và cảnh báo ngắn rằng CO₂ vẫn cao.
 - Lý do trong set_room_scene phải ngắn, bằng tiếng Việt, dựa trên dữ liệu quan sát được.
 - Phản hồi cuối bằng tiếng Việt, thân thiện và chu đáo trong 1–3 câu. Xác nhận đúng giá trị tool trả về,
   không nói đã đổi thuộc tính không xuất hiện trong changed.
@@ -695,6 +781,11 @@ class AssistantOrchestrator:
             snapshot = await self.engine.snapshot()
             now = datetime.now(BANGKOK)
             request_context = infer_request_context(request.text, snapshot.inferred_context)
+            preparation_context: Context | None = None
+            if is_work_preparation(request.text):
+                preparation_context = "working"
+            elif is_sleep_preparation(request.text):
+                preparation_context = "sleeping"
             relevant_preferences = self.storage.relevant_preferences(request_context, now)
             scene_overrides, automatic_preference_id = request_scene_overrides(
                 request.text,
@@ -771,6 +862,7 @@ class AssistantOrchestrator:
             pending_scene: RoomSceneTargets | None = None
             applied_preference_id: str | None = None
             preference_saved = False
+            scene_validation_failed = False
 
             for loop_index in range(5):
                 started = perf_counter()
@@ -988,6 +1080,7 @@ class AssistantOrchestrator:
                                     data=tool_output,
                                 )
                             except (ValidationError, CommandValidationError, ValueError) as error:
+                                scene_validation_failed = True
                                 details = getattr(error, "details", {})
                                 tool_output = {"ok": False, "error": str(error), "details": details}
                                 await trace(
@@ -1041,6 +1134,11 @@ class AssistantOrchestrator:
                     },
                 )
 
+            if pending_scene is None and scene_validation_failed:
+                raise AssistantWorkflowError(
+                    "Mô hình không sửa được scene sau khi validation từ chối."
+                )
+
             if pending_scene:
                 result = await self.engine.command_scene(
                     pending_scene,
@@ -1058,7 +1156,8 @@ class AssistantOrchestrator:
                     self.storage.mark_preference_used(applied_preference_id, datetime.now(BANGKOK))
                 assistant_text = action_confirmation(
                     result.changed,
-                    context=request_context,
+                    snapshot=await self.engine.snapshot(),
+                    preparation_context=preparation_context,
                     preference_saved=preference_saved,
                     preference_used=applied_preference_id is not None,
                 )

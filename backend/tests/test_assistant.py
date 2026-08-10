@@ -18,7 +18,7 @@ from app.assistant import (
 )
 from app.models import AssistantRequest, ChangedValue, DeviceCommand, PreferenceCreate, PreferenceTargets
 from app.scenarios import ScenarioRepository
-from app.simulation import SimulationEngine
+from app.simulation import SimulationEngine, initial_snapshot
 from app.state import EventBroker
 from app.storage import Storage
 
@@ -192,12 +192,121 @@ def test_shutdown_confirmation_does_not_claim_work_scene_is_ready() -> None:
             ChangedValue(path="devices.main_light.power", before=True, after=False),
             ChangedValue(path="devices.main_light.brightness_percent", before=65, after=0),
         ],
-        context="working",
+        snapshot=initial_snapshot(),
+        preparation_context=None,
         preference_saved=False,
         preference_used=False,
     )
 
     assert "Không gian làm việc đã sẵn sàng" not in reply
+
+
+def test_sleep_scene_normalizes_dependencies_and_confirms_ready(tmp_path: Path) -> None:
+    async def run() -> None:
+        client = FakeClient([
+            response(
+                tool_call(
+                    "set_room_scene",
+                    {
+                        "change_mode": "explicit",
+                        "ac_power": True,
+                        "main_light_power": False,
+                        "main_light_brightness_percent": 65,
+                        "bedside_light_power": True,
+                        "bedside_light_brightness_percent": 15,
+                        "bedside_light_color_temperature_kelvin": 2700,
+                        "curtain_position_percent": 0,
+                        "window_state": "open",
+                        "desk_computer_power": False,
+                        "monitor_power": False,
+                        "reason": "Chuẩn bị phòng ngủ và thông gió.",
+                    },
+                    "call-1",
+                )
+            ),
+            response(text="Đã chuẩn bị phòng ngủ."),
+        ])
+        orchestrator, engine, storage = build_orchestrator(tmp_path, client)
+
+        await orchestrator.submit(AssistantRequest(text="Tôi chuẩn bị ngủ.", session_id="test"))
+        await orchestrator.wait_idle()
+
+        snapshot = await engine.snapshot()
+        conversation = storage.conversations(1)[0]
+        with storage.connect() as connection:
+            validation_statuses = [
+                row[0]
+                for row in connection.execute(
+                    "SELECT status FROM assistant_trace_events "
+                    "WHERE stage = 'validation_completed' ORDER BY sequence"
+                )
+            ]
+        assert snapshot.devices.ac.power is False
+        assert snapshot.openings.window_state == "open"
+        assert snapshot.devices.main_light.power is False
+        assert snapshot.devices.main_light.brightness_percent == 0
+        assert snapshot.devices.bedside_light.power is True
+        assert snapshot.devices.bedside_light.brightness_percent == 15
+        assert validation_statuses == ["completed"]
+        assert "rèm đóng" in conversation.assistant_text
+        assert "đèn chính 0%" not in conversation.assistant_text
+        assert "Không gian ngủ đã sẵn sàng" in conversation.assistant_text
+
+    asyncio.run(run())
+
+
+def test_work_preparation_noop_returns_contextual_confirmation(tmp_path: Path) -> None:
+    async def run() -> None:
+        client = FakeClient([response(text="Mọi thứ đã sẵn sàng.")])
+        orchestrator, engine, storage = build_orchestrator(tmp_path, client)
+        snapshot = await engine.snapshot()
+        engine._snapshot = snapshot.model_copy(
+            update={
+                "environment": snapshot.environment.model_copy(
+                    update={"ambient_light_lux": 500, "co2_ppm": 800}
+                )
+            }
+        )
+
+        await orchestrator.submit(
+            AssistantRequest(text="Tôi chuẩn bị làm việc.", session_id="test")
+        )
+        await orchestrator.wait_idle()
+
+        conversation = storage.conversations(1)[0]
+        assert conversation.status == "completed"
+        assert "máy tính và màn hình đang bật" in conversation.assistant_text
+        assert "không cần thay đổi thêm" in conversation.assistant_text
+
+    asyncio.run(run())
+
+
+def test_abandoned_invalid_scene_is_failed_not_completed(tmp_path: Path) -> None:
+    async def run() -> None:
+        client = FakeClient([
+            response(
+                tool_call(
+                    "set_room_scene",
+                    {
+                        "change_mode": "explicit",
+                        "ac_temperature_c": 17,
+                        "reason": "Làm lạnh phòng.",
+                    },
+                    "call-1",
+                )
+            ),
+            response(text="Xin lỗi, tôi không áp dụng được."),
+        ])
+        orchestrator, _, storage = build_orchestrator(tmp_path, client)
+
+        await orchestrator.submit(AssistantRequest(text="Làm mát phòng.", session_id="test"))
+        await orchestrator.wait_idle()
+
+        conversation = storage.conversations(1)[0]
+        assert conversation.status == "failed"
+        assert "không sửa được scene" in conversation.error_message
+
+    asyncio.run(run())
 
 
 def test_openai_function_tool_schemas_are_valid_json_schema() -> None:
@@ -235,6 +344,8 @@ def test_request_context_is_deterministic_for_supported_scenes() -> None:
         "Tôi đi ngủ đây.": "sleeping",
         "Tôi muốn đọc sách trên giường.": "reading_in_bed",
         "Tôi chuẩn bị ra ngoài.": "away",
+        "Tôi ngừng làm việc rồi đi ngủ.": "sleeping",
+        "Ngủ dậy tôi bắt đầu làm việc.": "working",
         "Giữ nguyên như hiện tại.": "working",
     }
 
@@ -283,6 +394,119 @@ def test_explicit_light_request_executes_when_model_skips_tool(tmp_path: Path) -
         assert "50%" in conversation.assistant_text
         assert "2700K" in conversation.assistant_text
         assert "chưa thực hiện" not in conversation.assistant_text.casefold()
+
+    asyncio.run(run())
+
+
+def test_sleep_ventilation_respects_explicit_closed_window_request(tmp_path: Path) -> None:
+    async def run() -> None:
+        client = FakeClient([
+            response(
+                tool_call(
+                    "set_room_scene",
+                    {
+                        "change_mode": "explicit",
+                        "ac_power": False,
+                        "main_light_power": False,
+                        "main_light_brightness_percent": 0,
+                        "window_state": "open",
+                        "reason": "Chuẩn bị ngủ nhưng giữ cửa sổ đóng theo yêu cầu.",
+                    },
+                    "call-1",
+                )
+            ),
+            response(text="Đã chuẩn bị ngủ và giữ cửa sổ đóng."),
+        ])
+        orchestrator, engine, storage = build_orchestrator(tmp_path, client)
+
+        await orchestrator.submit(
+            AssistantRequest(
+                text="Tôi chuẩn bị ngủ nhưng đừng mở cửa sổ.",
+                session_id="test",
+            )
+        )
+        await orchestrator.wait_idle()
+
+        assert (await engine.snapshot()).openings.window_state == "closed"
+        conversation = storage.conversations(1)[0]
+        assert conversation.status == "completed"
+        assert "CO₂ vẫn cao" in conversation.assistant_text
+        assert "Không gian ngủ đã sẵn sàng" not in conversation.assistant_text
+
+    asyncio.run(run())
+
+
+def test_preparation_question_does_not_trigger_deterministic_scene(tmp_path: Path) -> None:
+    async def run() -> None:
+        client = FakeClient([
+            response(text="CO₂ đang cao, bạn nên thông gió trước khi ngủ."),
+        ])
+        orchestrator, engine, storage = build_orchestrator(tmp_path, client)
+        before = await engine.snapshot()
+
+        await orchestrator.submit(
+            AssistantRequest(
+                text="Nếu tôi đi ngủ bây giờ thì phòng có ổn không?",
+                session_id="test",
+            )
+        )
+        await orchestrator.wait_idle()
+
+        assert await engine.snapshot() == before
+        assert storage.conversations(1)[0].status == "completed"
+
+    asyncio.run(run())
+
+
+def test_work_preparation_respects_explicit_no_light_request(tmp_path: Path) -> None:
+    async def run() -> None:
+        client = FakeClient([
+            response(
+                tool_call(
+                    "set_room_scene",
+                    {
+                        "change_mode": "explicit",
+                        "main_light_power": True,
+                        "main_light_brightness_percent": 70,
+                        "desk_computer_power": True,
+                        "monitor_power": True,
+                        "reason": "Chuẩn bị bàn làm việc.",
+                    },
+                    "call-1",
+                )
+            ),
+            response(text="Đã chuẩn bị bàn làm việc."),
+        ])
+        orchestrator, engine, storage = build_orchestrator(tmp_path, client)
+        storage.create_preference(
+            PreferenceCreate(
+                context="working",
+                requested_intent="ánh sáng khi làm việc",
+                preferred_result=PreferenceTargets(
+                    main_light_power=True,
+                    main_light_brightness_percent=70,
+                    main_light_color_temperature_kelvin=4000,
+                ),
+            ),
+            datetime.now(UTC),
+        )
+        await engine.command_device(
+            "main_light",
+            DeviceCommand(values={"power": False}, source="manual"),
+        )
+
+        await orchestrator.submit(
+            AssistantRequest(
+                text="Tôi chuẩn bị làm việc nhưng không bật đèn.",
+                session_id="test",
+            )
+        )
+        await orchestrator.wait_idle()
+
+        snapshot = await engine.snapshot()
+        assert snapshot.devices.main_light.power is False
+        assert snapshot.devices.main_light.brightness_percent == 0
+        assert storage.conversations(1)[0].status == "completed"
 
     asyncio.run(run())
 

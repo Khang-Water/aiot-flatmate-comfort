@@ -38,8 +38,10 @@ MediaRecorder -> /api/asr        SpeechRecognition vi-VN
 - Infer deterministic context before contacting the model.
 - Retrieve context-scoped preferences before the model request.
 - Enforce explicit numeric targets and deterministic Vietnamese light-color mappings before scene validation.
+- Normalize model power/level dependencies, enforce CO₂ ventilation for work/sleep preparation, and preserve explicit user negation.
 - Run OpenAI Responses tool loop and publish safe trace events.
 - Validate numerical targets before simulation mutations.
+- Mark abandoned invalid scenes failed instead of reporting a completed request.
 - Build action confirmation from committed `ChangedValue` records instead of unverified model prose.
 - Record conversations, actions, trace summaries, preferences, and implicit feedback evidence.
 - Load backend TTS only when `TTS_ENABLED=true`; load faster-whisper separately when `LOCAL_ASR_ENABLED=true`.
