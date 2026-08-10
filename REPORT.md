@@ -43,7 +43,7 @@ FlatMate Comfort là nguyên mẫu AIoT mô phỏng một căn hộ một phòng
 
 Backend được xây dựng bằng FastAPI, Pydantic và SQLite. Simulation engine chạy xác định với seed cố định, duy trì lịch sử 24 giờ và phát trạng thái qua Server-Sent Events (SSE). Frontend Next.js sử dụng React Three Fiber để dựng căn hộ, nội thất, người dùng, sensor overlay, dashboard và conversation history. Speech có hai mode: localhost dùng faster-whisper `small` trên CPU `int8`, VieNeu-TTS v3 Turbo ONNX `int8` và Supertonic fallback; bản Render Free dùng `SpeechRecognition` cho ASR và Piper `vi_VN-vais1000-medium` trên backend cho TTS.
 
-Kết quả kiểm tra tại thời điểm báo cáo gồm 71 test backend đạt, 1 test bỏ qua theo điều kiện môi trường, Ruff đạt, TypeScript đạt, production build và Docker smoke test thành công. Dataset baseline có 1.440 mẫu cảm biến, tương ứng một mẫu mỗi phút trong 24 giờ. Một lần chạy end-to-end trên kịch bản `hot_room` đã chuyển trạng thái từ AC tắt ở 27°C và quạt tắt sang AC bật ở 25°C, quạt mức 1; cửa sổ giữ đóng. TTS local greedy tạo câu 2,80 giây với thời gian trung bình 2,99 giây qua ba lượt; container Piper bị giới hạn đúng 512 MB và 0,1 CPU tạo câu 3,855 giây trong 17,12 giây ở lượt lazy-load đầu, 1,49 giây ở lượt warm và dùng 254,3 MiB RSS cho toàn service.
+Kết quả kiểm tra tại thời điểm báo cáo gồm 75 test backend đạt, 1 test bỏ qua theo điều kiện môi trường, Ruff đạt, TypeScript đạt, production build và Docker smoke test thành công. Dataset baseline có 1.440 mẫu cảm biến, tương ứng một mẫu mỗi phút trong 24 giờ; CO₂ seed 42 dao động 495–1.036 ppm với trung vị 842 ppm và chỉ vượt 1.000 ppm trong 13,5% số mẫu. Một lần chạy end-to-end trên kịch bản `hot_room` đã chuyển trạng thái từ AC tắt ở 27°C và quạt tắt sang AC bật ở 25°C, quạt mức 1; cửa sổ giữ đóng. TTS local greedy tạo câu 2,80 giây với thời gian trung bình 2,99 giây qua ba lượt; container Piper bị giới hạn đúng 512 MB và 0,1 CPU tạo câu 3,855 giây trong 17,12 giây ở lượt lazy-load đầu, 1,49 giây ở lượt warm và dùng 254,3 MiB RSS cho toàn service.
 
 **Từ khóa:** AIoT, digital twin, smart apartment, personalization, LLM tool calling, context memory, sensor simulation, Vietnamese ASR, offline TTS.
 
@@ -289,11 +289,12 @@ x(t+1) = clamp(x(t) + daily_drift + occupancy_effect + device_effect + seeded_no
 
 Các quan hệ chính:
 
-- Có người và cửa sổ đóng làm CO₂ tăng.
-- Cửa sổ mở làm CO₂ giảm nhưng AC phải tắt.
+- Lịch ngày gồm ngủ, làm việc tại nhà, thư giãn, hai khoảng vắng nhà và ba khoảng thông gió ngắn; baseline mới không giả định người dùng ở phòng suốt 24 giờ.
+- CO₂ tiến theo hàm mũ về target riêng cho `away`, `relaxing`, `working`, `sleeping` và cửa sổ mở; cách tính không vượt target khi simulation tăng nhiều phút mỗi tick.
+- Cửa sổ mở làm CO₂ giảm nhanh nhưng AC phải tắt; PM2.5 đồng thời tiến gần điều kiện ngoài trời.
 - Air purifier giảm PM2.5, không được mô tả là thiết bị loại CO₂.
 - AC đưa nhiệt độ dần về target.
-- Fan, AC và purifier góp phần vào noise level.
+- Thời điểm, hiện diện, làm việc tại bàn, cửa sổ, fan, AC và purifier góp phần vào noise level.
 - Thời gian trong ngày và curtain position ảnh hưởng ambient light.
 
 ## 6. Trợ lý AI và guardrail
@@ -525,6 +526,17 @@ API gồm health/state, simulation, scenario, device command, assistant, ASR/TTS
 - `device_history.csv`: 19 trạng thái thiết bị tại baseline snapshot.
 - 10 scenario: `working`, `relaxing`, `sleeping`, `reading_in_bed`, `hot_room`, `stuffy_air`, `polluted_air`, `strong_sunlight`, `quiet_comfort`, `empty_room`.
 
+| Sensor baseline, seed 42 | Minimum | Median | Maximum |
+| --- | ---: | ---: | ---: |
+| Temperature | 25,8°C | 26,8°C | 29,5°C |
+| Humidity | 54,9% | 61,9% | 70,2% |
+| CO₂ | 495 ppm | 842 ppm | 1.036 ppm |
+| PM2.5 | 10,0 µg/m³ | 11,8 µg/m³ | 15,5 µg/m³ |
+| Ambient light | 0 lux | 192,5 lux | 2.267,6 lux |
+| Noise | 29,4 dB | 37,3 dB | 40,6 dB |
+
+CO₂ từ 1.000 ppm trở lên trong 194/1.440 mẫu, tương đương 13,5%, tập trung ở cuối các khoảng làm việc hoặc ngủ khi cửa sổ đóng. Context baseline gồm 525 phút `working`, 450 phút `sleeping`, 330 phút `relaxing` và 135 phút `away`; cửa sổ mở tổng cộng 65 phút. Kiểm tra runtime tăng tốc trong ba ngày còn xác nhận ngày cuối có CO₂ dưới ngưỡng cảnh báo ở hơn một nửa số mẫu.
+
 ### 10.2. Demo end-to-end: `hot_room`
 
 **Yêu cầu:** “Phòng rất nóng, hãy làm mát vừa phải.”
@@ -533,7 +545,7 @@ API gồm health/state, simulation, scenario, device command, assistant, ASR/TTS
 | --- | ---: | ---: |
 | Temperature | 33,0°C | 33,0°C vì simulation được pause khi đo |
 | Humidity | 78% | 78% |
-| CO₂ | 1.150 ppm | 1.150 ppm |
+| CO₂ | 720 ppm | 720 ppm |
 | Window | closed | closed |
 | AC power | off | on |
 | AC target | 27°C | 25°C |
@@ -591,14 +603,14 @@ Container benchmark bị giới hạn bằng `--memory=512m --cpus=0.1`, không 
 
 | Kiểm tra | Kết quả |
 | --- | --- |
-| Pytest | 73 passed, 1 skipped |
+| Pytest | 75 passed, 1 skipped |
 | Ruff | All checks passed |
 | Frontend domain checks | geometry, voice, trace, privacy, accessibility passed |
 | TypeScript | `tsc --noEmit` passed |
 | Next.js production build | compiled và prerendered thành công |
 | Draw.io architecture validation | 0 error; 2 edge-crossing warnings, không có edge đi qua node |
 
-Test bao phủ contract, scenario loading, deterministic reset, history clamp, atomic command, assistant tool loop, timeout model mặc định 120 giây, post-commit LLM response không có tool, payload dùng `ChangedValue` và snapshot đã commit, fallback khi lượt sinh lời cuối lỗi, ID preference hallucinated không chặn lệnh tắt toàn bộ, năm context và chuyển context, explicit-value enforcement, màu đèn tiếng Việt, work/sleep preparation, CO₂ ventilation, user negation, no-op confirmation, trạng thái failed sau scene bị bỏ dở, preference isolation, correction áp dụng ngay, implicit candidate gating và promotion brightness/color sau ba manual override, TTS text normalization, VieNeu/Piper initialization failure cache, Piper WAV contract và giới hạn text runtime.
+Test bao phủ contract, scenario loading, deterministic reset, history clamp, atomic command, assistant tool loop, timeout model mặc định 120 giây, phân bố baseline có đủ healthy/high CO₂, `away`, thông gió, ánh sáng và noise, runtime tăng tốc không khóa CO₂ trên ngưỡng cảnh báo, post-commit LLM response không có tool, payload dùng `ChangedValue` và snapshot đã commit, fallback khi lượt sinh lời cuối lỗi, ID preference hallucinated không chặn lệnh tắt toàn bộ, năm context và chuyển context, explicit-value enforcement, màu đèn tiếng Việt, work/sleep preparation, CO₂ ventilation, user negation, no-op confirmation, trạng thái failed sau scene bị bỏ dở, preference isolation, correction áp dụng ngay, implicit candidate gating và promotion brightness/color sau ba manual override, TTS text normalization, VieNeu/Piper initialization failure cache, Piper WAV contract và giới hạn text runtime.
 
 ## 11. Đánh giá
 

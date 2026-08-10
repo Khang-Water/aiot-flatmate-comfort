@@ -51,15 +51,15 @@ def initial_snapshot(timestamp: datetime = SIMULATION_START) -> RoomSnapshot:
         version=0,
         timestamp=timestamp,
         environment=EnvironmentState(
-            temperature_c=28.4,
-            humidity_percent=72,
-            co2_ppm=1_150,
-            pm25_ug_m3=12,
-            ambient_light_lux=180,
-            noise_db=37,
+            temperature_c=27.2,
+            humidity_percent=65,
+            co2_ppm=720,
+            pm25_ug_m3=10,
+            ambient_light_lux=1_300,
+            noise_db=38,
         ),
         occupancy=OccupancyState(room_present=True, bed_occupied=False, desk_occupied=True),
-        openings=OpeningsState(window_state="closed", curtain_position_percent=60),
+        openings=OpeningsState(window_state="closed", curtain_position_percent=75),
         power=PowerState(
             computer_power_watts=140,
             smart_plugs={
@@ -70,10 +70,10 @@ def initial_snapshot(timestamp: datetime = SIMULATION_START) -> RoomSnapshot:
         devices=DeviceStates(
             ac=AcState(power=True, mode="cool", temperature_c=26, fan_mode="auto"),
             fan=FanState(power=False, speed=0, oscillation=True),
-            main_light=LightState(power=True, brightness_percent=65, color_temperature_kelvin=4_000),
+            main_light=LightState(power=False, brightness_percent=0, color_temperature_kelvin=4_000),
             bedside_light=LightState(power=False, brightness_percent=0, color_temperature_kelvin=3_000),
             air_purifier=SpeedDeviceState(power=False, speed=0),
-            curtain=CurtainState(position_percent=60),
+            curtain=CurtainState(position_percent=75),
             humidity_device=HumidityDeviceState(
                 power=False,
                 mode="dehumidify",
@@ -103,16 +103,23 @@ def apply_daily_schedule(
     *,
     manage_computer_power: bool = True,
 ) -> RoomSnapshot:
+    # ponytail: One deterministic work-from-home day; add calendar profiles when weekends matter.
     data = snapshot.model_dump(mode="python")
-    hour = timestamp.hour
-    if hour < 7 or hour >= 23:
+    minute_of_day = timestamp.hour * 60 + timestamp.minute
+    if minute_of_day < 390 or minute_of_day >= 1_380:
         present, bed, desk, computer = True, True, False, 0.0
-    elif 8 <= hour < 18:
-        present, bed, desk, computer = True, False, True, 140.0
-    elif hour == 7 or 18 <= hour < 23:
+    elif minute_of_day < 450:
         present, bed, desk, computer = True, False, False, 0.0
-    else:
+    elif minute_of_day < 705:
+        present, bed, desk, computer = True, False, True, 140.0
+    elif minute_of_day < 780:
         present, bed, desk, computer = False, False, False, 0.0
+    elif minute_of_day < 1_050:
+        present, bed, desk, computer = True, False, True, 140.0
+    elif minute_of_day < 1_110:
+        present, bed, desk, computer = False, False, False, 0.0
+    else:
+        present, bed, desk, computer = True, False, False, 0.0
     data["occupancy"].update(
         room_present=present,
         bed_occupied=bed,
@@ -122,6 +129,68 @@ def apply_daily_schedule(
         data["power"]["computer_power_watts"] = computer
         computer_plug = data["power"]["smart_plugs"]["desk_computer"]
         computer_plug.update(state="on" if computer else "off", power_watts=computer)
+        monitor_plug = data["power"]["smart_plugs"]["monitor"]
+        monitor_plug.update(
+            state="on" if computer else "off",
+            power_watts=32.0 if computer else 0.0,
+        )
+    return RoomSnapshot.model_validate(data)
+
+
+def apply_baseline_routine(snapshot: RoomSnapshot, timestamp: datetime) -> RoomSnapshot:
+    current = apply_daily_schedule(snapshot, timestamp)
+    data = current.model_dump(mode="python")
+    minute_of_day = timestamp.hour * 60 + timestamp.minute
+    occupancy = data["occupancy"]
+    devices = data["devices"]
+
+    window_open = (
+        390 <= minute_of_day < 420
+        or 690 <= minute_of_day < 705
+        or 1_110 <= minute_of_day < 1_130
+    )
+    data["openings"]["window_state"] = "open" if window_open else "closed"
+
+    if occupancy["bed_occupied"]:
+        curtain_position = 15
+    elif not occupancy["room_present"]:
+        curtain_position = 30
+    elif 600 <= minute_of_day < 1_020:
+        curtain_position = 50
+    else:
+        curtain_position = 75
+    data["openings"]["curtain_position_percent"] = curtain_position
+    devices["curtain"]["position_percent"] = curtain_position
+
+    ac_power = (
+        occupancy["room_present"]
+        and not window_open
+        and (
+            occupancy["desk_occupied"]
+            or occupancy["bed_occupied"]
+            or minute_of_day >= 1_140
+        )
+    )
+    devices["ac"].update(
+        power=ac_power,
+        mode="cool",
+        temperature_c=26 if occupancy["desk_occupied"] else 27,
+        fan_mode="auto",
+    )
+
+    morning_light = 390 <= minute_of_day < 450
+    evening_light = 1_110 <= minute_of_day < 1_350
+    bedside_light = 1_350 <= minute_of_day < 1_380
+    devices["main_light"].update(
+        power=morning_light or evening_light,
+        brightness_percent=35 if morning_light else 55 if evening_light else 0,
+        color_temperature_kelvin=3_500 if morning_light else 3_300,
+    )
+    devices["bedside_light"].update(
+        power=bedside_light,
+        brightness_percent=25 if bedside_light else 0,
+        color_temperature_kelvin=2_800,
+    )
     return RoomSnapshot.model_validate(data)
 
 
@@ -166,15 +235,26 @@ def advance_snapshot(
     environment["humidity_percent"] = round(clamp(environment["humidity_percent"] + humidity_delta, 25, 95), 2)
 
     if openings["window_state"] == "open":
-        co2_delta = (520 - environment["co2_ppm"]) * 0.035 * minutes
-    elif occupancy["room_present"]:
-        co2_delta = (1_650 - environment["co2_ppm"]) * 0.012 * minutes
+        co2_target, co2_rate = 450, 0.055
+    elif not occupancy["room_present"]:
+        co2_target, co2_rate = 470, 0.025
+    elif occupancy["bed_occupied"]:
+        co2_target, co2_rate = 1_100, 0.0035
+    elif occupancy["desk_occupied"]:
+        co2_target, co2_rate = 1_150, 0.006
     else:
-        co2_delta = (500 - environment["co2_ppm"]) * 0.008 * minutes
+        co2_target, co2_rate = 900, 0.005
+    co2_delta = (co2_target - environment["co2_ppm"]) * (
+        1 - math.exp(-co2_rate * minutes)
+    )
+    co2_delta += rng.uniform(-0.7, 0.7) * math.sqrt(minutes)
     environment["co2_ppm"] = round(clamp(environment["co2_ppm"] + co2_delta, 400, 5_000), 1)
 
     pm_target = 11 + 3 * max(0.0, math.sin(math.pi * (hour - 7) / 12))
     pm_delta = (pm_target - environment["pm25_ug_m3"]) * 0.018 * minutes
+    if openings["window_state"] == "open":
+        outdoor_pm_target = 16 + 4 * max(0.0, math.sin(math.pi * (hour - 6) / 12))
+        pm_delta += (outdoor_pm_target - environment["pm25_ug_m3"]) * 0.025 * minutes
     pm_delta += rng.uniform(-0.09, 0.09) * math.sqrt(minutes)
     if devices["air_purifier"]["power"]:
         pm_delta -= devices["air_purifier"]["speed"] * 0.18 * minutes
@@ -187,7 +267,10 @@ def advance_snapshot(
     )
     environment["ambient_light_lux"] = round(clamp(natural_lux + light_lux, 0, 100_000), 1)
 
-    noise = 29.0
+    noise = 26.0 if hour < 6 or hour >= 23 else 30.0
+    noise += 1.5 if occupancy["room_present"] else 0
+    noise += 2.5 if occupancy["desk_occupied"] else 0
+    noise += 5.5 if openings["window_state"] == "open" else 0
     noise += 6 if devices["ac"]["power"] else 0
     noise += devices["fan"]["speed"] * 4.5
     noise += devices["air_purifier"]["speed"] * 3.5
@@ -210,7 +293,8 @@ def generate_baseline(seed: int) -> list[RoomSnapshot]:
     snapshots: list[RoomSnapshot] = []
     for _ in range(24 * 60):
         timestamp += timedelta(minutes=1)
-        snapshot = advance_snapshot(snapshot, timestamp, rng, 1, use_schedule=True)
+        snapshot = apply_baseline_routine(snapshot, timestamp)
+        snapshot = advance_snapshot(snapshot, timestamp, rng, 1, use_schedule=False)
         snapshots.append(snapshot)
     return snapshots
 
@@ -328,7 +412,7 @@ class SimulationEngine:
         async with self._lock:
             context = self._snapshot.inferred_context
             updated, changes = apply_device_command(self._snapshot, device_id, command.values)
-            if device_id == "desk_computer" and changes:
+            if device_id in {"desk_computer", "monitor"} and changes:
                 self._computer_schedule_enabled = False
             timestamp = self._snapshot.timestamp
             if changes:
@@ -405,7 +489,7 @@ class SimulationEngine:
             command_id = str(uuid4())
             if changes:
                 self._snapshot = updated.model_copy(update={"timestamp": timestamp})
-                if scene.desk_computer_power is not None:
+                if scene.desk_computer_power is not None or scene.monitor_power is not None:
                     self._computer_schedule_enabled = False
                 self.storage.record_changes(
                     command_id,

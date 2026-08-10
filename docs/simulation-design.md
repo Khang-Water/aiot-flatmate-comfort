@@ -20,14 +20,35 @@ Scenario files follow `contracts/scenario.schema.json` and contain metadata, ini
 
 ## Baseline behavior
 
+Daily routine represents one work-from-home resident:
+
+- `sleeping`: 00:00–06:30 and 23:00–24:00.
+- `relaxing`: 06:30–07:30 and 18:30–23:00.
+- `working`: 07:30–11:45 and 13:00–17:30.
+- `away`: 11:45–13:00 and 17:30–18:30.
+- Windows open briefly at 06:30, 11:30, and 18:30. AC, curtains, main light, bedside light, computer, and monitor follow occupancy and time of day only while generating baseline history; runtime manual or assistant controls are not overwritten.
+
 - Temperature follows daily sinusoidal drift plus bounded seeded noise; AC gradually moves it toward target.
 - Humidity follows weather-like drift; AC and humidity device influence it gradually.
-- CO2 rises with presence and closed window, falls faster with open window.
-- PM2.5 receives small random disturbances; purifier reduces it by speed.
+- CO2 uses exponential movement toward context-specific targets: lowest while away or ventilating, moderate while relaxing, higher after long work or sleep periods. This remains stable for accelerated multi-minute ticks.
+- PM2.5 receives small random disturbances; open windows move it toward outdoor conditions and purifier reduces it by speed.
 - Ambient light follows time of day and curtain position; active lights add local illumination.
-- Noise combines baseline, fan, AC, purifier, and scenario contributions.
+- Noise combines time of day, occupancy, desk work, open-window outdoor sound, fan, AC, purifier, and scenario contributions.
 - Power follows device states and computer activity.
 - All values are clamped to plausible configured bounds.
+
+Seed `42` baseline statistics:
+
+| Sensor | Minimum | Median | Maximum |
+| --- | ---: | ---: | ---: |
+| Temperature | 25.8°C | 26.8°C | 29.5°C |
+| Humidity | 54.9% | 61.9% | 70.2% |
+| CO2 | 495.4 ppm | 841.5 ppm | 1,035.9 ppm |
+| PM2.5 | 10.0 µg/m³ | 11.8 µg/m³ | 15.5 µg/m³ |
+| Ambient light | 0 lux | 192.5 lux | 2,267.6 lux |
+| Noise | 29.4 dB | 37.3 dB | 40.6 dB |
+
+CO2 is at or above 1,000 ppm for 194 of 1,440 minutes (13.5%), concentrated near the end of closed-window work and sleep periods. A three-day accelerated-runtime check also keeps the latest day below the warning threshold for more than half its samples. The dedicated `stuffy_air` scenario remains the severe 1,800 ppm case.
 
 Context remains deterministic:
 

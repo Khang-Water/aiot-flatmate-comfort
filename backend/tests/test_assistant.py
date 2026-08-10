@@ -304,6 +304,12 @@ def test_sleep_scene_normalizes_dependencies_and_confirms_ready(tmp_path: Path) 
             ),
         ])
         orchestrator, engine, storage = build_orchestrator(tmp_path, client)
+        snapshot = await engine.snapshot()
+        engine._snapshot = snapshot.model_copy(
+            update={
+                "environment": snapshot.environment.model_copy(update={"co2_ppm": 1_550})
+            }
+        )
 
         await orchestrator.submit(AssistantRequest(text="Tôi chuẩn bị ngủ.", session_id="test"))
         await orchestrator.wait_idle()
@@ -503,6 +509,12 @@ def test_sleep_ventilation_respects_explicit_closed_window_request(tmp_path: Pat
             ),
         ])
         orchestrator, engine, storage = build_orchestrator(tmp_path, client)
+        snapshot = await engine.snapshot()
+        engine._snapshot = snapshot.model_copy(
+            update={
+                "environment": snapshot.environment.model_copy(update={"co2_ppm": 1_550})
+            }
+        )
 
         await orchestrator.submit(
             AssistantRequest(
@@ -756,6 +768,14 @@ def test_work_preparation_builds_complete_low_light_scene(tmp_path: Path) -> Non
         await engine.command_device(
             "main_light",
             DeviceCommand(values={"brightness_percent": 0}, source="manual"),
+        )
+        snapshot = await engine.snapshot()
+        engine._snapshot = snapshot.model_copy(
+            update={
+                "environment": snapshot.environment.model_copy(
+                    update={"ambient_light_lux": 120}
+                )
+            }
         )
 
         await orchestrator.submit(AssistantRequest(text="Tôi chuẩn bị làm việc.", session_id="test"))
