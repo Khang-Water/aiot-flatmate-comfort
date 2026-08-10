@@ -42,7 +42,7 @@ MediaRecorder -> /api/asr        SpeechRecognition vi-VN
 - Run OpenAI Responses tool loop and publish safe trace events.
 - Validate numerical targets before simulation mutations.
 - Mark abandoned invalid scenes failed instead of reporting a completed request.
-- Build action confirmation from committed `ChangedValue` records instead of unverified model prose.
+- After commit, call the LLM once without tools using the original request, committed `ChangedValue` records, current snapshot, context, and preference flags; keep deterministic confirmation only as an API-error fallback.
 - Record conversations, actions, trace summaries, preferences, and implicit feedback evidence.
 - Load backend TTS only when `TTS_ENABLED=true`; load faster-whisper separately when `LOCAL_ASR_ENABLED=true`.
 - Normalize Vietnamese TTS text through the same lexicon/VietNormalizer path before VieNeu, Supertonic, or Piper synthesis.
@@ -77,7 +77,8 @@ SQLite stores sensor samples, device actions, conversations, trace events, prefe
 ## Failure behavior
 
 - Missing OpenAI key: disable assistant submission and show setup message.
-- OpenAI timeout/error: emit failed trace event and keep room state unchanged.
+- OpenAI timeout/error before commit: emit a failed trace event and keep room state unchanged.
+- OpenAI timeout/error while generating post-commit text: keep the committed state, return deterministic confirmation, and record the failed model call.
 - Invalid tool arguments: reject complete tool action; do not partially apply scene.
 - SSE disconnect: web reconnects and fetches fresh snapshot before processing new events.
 - WebGL unavailable: dashboard and accessible apartment status remain usable.

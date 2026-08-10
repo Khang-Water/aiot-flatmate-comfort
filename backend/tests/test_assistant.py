@@ -181,7 +181,8 @@ def test_chat_completions_accepts_null_string_preference_sentinel(tmp_path: Path
         await orchestrator.wait_idle()
 
         assert (await engine.snapshot()).devices.ac.temperature_c == 25
-        assert storage.conversations(1)[0].status == "completed"
+        assert storage.conversations(1)[0].assistant_text == "Đã đặt điều hòa 25 độ."
+        assert "tools" not in client.chat.completions.calls[1]
 
     asyncio.run(run())
 
@@ -244,7 +245,13 @@ def test_sleep_scene_normalizes_dependencies_and_confirms_ready(tmp_path: Path) 
                     "call-1",
                 )
             ),
-            response(text="Đã chuẩn bị phòng ngủ."),
+            response(
+                text=(
+                    "Tôi đã tắt điều hòa, để rèm đóng, tắt đèn chính, bật đèn đầu giường "
+                    "15% ở 2700K, mở cửa sổ và tắt máy tính, màn hình. "
+                    "Không gian ngủ đã sẵn sàng."
+                )
+            ),
         ])
         orchestrator, engine, storage = build_orchestrator(tmp_path, client)
 
@@ -398,7 +405,10 @@ def test_explicit_light_targets_cover_color_device_and_non_commands() -> None:
 
 def test_explicit_light_request_executes_when_model_skips_tool(tmp_path: Path) -> None:
     async def run() -> None:
-        client = FakeClient([response(text="Tôi chưa thực hiện thay đổi.")])
+        client = FakeClient([
+            response(text="Tôi chưa thực hiện thay đổi."),
+            response(text="Tôi đã chỉnh đèn chính lên 50% với ánh sáng vàng 2700K."),
+        ])
         orchestrator, engine, storage = build_orchestrator(tmp_path, client)
 
         await orchestrator.submit(
@@ -411,9 +421,9 @@ def test_explicit_light_request_executes_when_model_skips_tool(tmp_path: Path) -
         assert snapshot.devices.main_light.power is True
         assert snapshot.devices.main_light.brightness_percent == 50
         assert snapshot.devices.main_light.color_temperature_kelvin == 2700
-        assert "50%" in conversation.assistant_text
-        assert "2700K" in conversation.assistant_text
-        assert "chưa thực hiện" not in conversation.assistant_text.casefold()
+        assert conversation.assistant_text == (
+            "Tôi đã chỉnh đèn chính lên 50% với ánh sáng vàng 2700K."
+        )
 
     asyncio.run(run())
 
@@ -435,7 +445,12 @@ def test_sleep_ventilation_respects_explicit_closed_window_request(tmp_path: Pat
                     "call-1",
                 )
             ),
-            response(text="Đã chuẩn bị ngủ và giữ cửa sổ đóng."),
+            response(
+                text=(
+                    "Tôi đã giữ cửa sổ đóng theo yêu cầu. CO₂ vẫn cao khoảng 1.550 ppm; "
+                    "bạn nên mở cửa sổ khi có thể."
+                )
+            ),
         ])
         orchestrator, engine, storage = build_orchestrator(tmp_path, client)
 
@@ -567,7 +582,7 @@ def test_explicit_light_request_corrects_wrong_bounded_tool_call(tmp_path: Path)
                         "call-1",
                     )
                 ),
-                response(text="Đã bật đèn 20% nhưng chưa đổi màu."),
+                response(text="Tôi đã chỉnh đèn chính lên 50% với ánh sáng vàng 2700K."),
             ]
         )
         orchestrator, engine, storage = build_orchestrator(tmp_path, client)
@@ -611,7 +626,7 @@ def test_explicit_numeric_request_cannot_be_limited_as_bounded(tmp_path: Path) -
                         "call-1",
                     )
                 ),
-                response(text="Đã đặt điều hòa 20 độ."),
+                response(text="Đã đặt điều hòa 20°C."),
             ]
         )
         orchestrator, engine, storage = build_orchestrator(tmp_path, client)
@@ -658,7 +673,7 @@ def test_current_explicit_value_overrides_conflicting_stored_preference(tmp_path
                         "call-1",
                     )
                 ),
-                response(text="Đã áp dụng sở thích cũ."),
+                response(text="Tôi đã chỉnh đèn chính lên 50% với ánh sáng vàng 2700K."),
             ]
         )
 
@@ -761,7 +776,7 @@ def test_working_preference_is_not_injected_into_relaxing_context(tmp_path: Path
     asyncio.run(run())
 
 
-def test_tool_loop_commits_scene_after_final_response(tmp_path: Path) -> None:
+def test_tool_loop_uses_llm_response_generated_from_committed_state(tmp_path: Path) -> None:
     async def run() -> None:
         client = FakeClient(
             [
@@ -795,8 +810,16 @@ def test_tool_loop_commits_scene_after_final_response(tmp_path: Path) -> None:
         assert snapshot.devices.fan.speed == 1
         assert conversation.request_id == accepted.request_id
         assert conversation.status == "completed"
-        assert conversation.assistant_text.startswith("Tôi đã")
+        assert conversation.assistant_text == "Tôi đã đặt AC 25 độ và bật quạt mức 1."
         assert client.responses.calls[1]["input"][-1]["type"] == "function_call_output"
+        final_call = client.responses.calls[2]
+        final_payload = json.loads(final_call["input"][0]["content"])
+        assert "tools" not in final_call
+        assert final_payload["user_request"] == "Đặt AC 25 độ và quạt mức 1."
+        assert final_payload["committed_snapshot"]["devices"]["ac"]["temperature_c"] == 25
+        assert {
+            item["path"]: item["after"] for item in final_payload["committed_changes"]
+        }["devices.ac.temperature_c"] == 25
         assert "validation_completed" in stages
         assert "action_applied" in stages
         assert stages[-1] == "assistant_response"
@@ -805,28 +828,42 @@ def test_tool_loop_commits_scene_after_final_response(tmp_path: Path) -> None:
     asyncio.run(run())
 
 
-def test_openai_failure_after_preview_leaves_room_unchanged(tmp_path: Path) -> None:
+def test_failed_or_empty_final_response_uses_fallback_after_commit(tmp_path: Path) -> None:
     async def run() -> None:
-        client = FakeClient(
-            [
-                response(tool_call("get_room_snapshot", {}, "call-1")),
-                response(tool_call("set_room_scene", scene_arguments(), "call-2")),
-                RuntimeError("simulated OpenAI outage"),
-            ]
-        )
-        orchestrator, engine, storage = build_orchestrator(tmp_path, client)
-        before = await engine.snapshot()
+        for case, final_response in (
+            ("error", RuntimeError("simulated OpenAI outage")),
+            ("empty", response(text="")),
+        ):
+            client = FakeClient(
+                [
+                    response(tool_call("get_room_snapshot", {}, "call-1")),
+                    response(tool_call("set_room_scene", scene_arguments(), "call-2")),
+                    final_response,
+                ]
+            )
+            orchestrator, engine, storage = build_orchestrator(tmp_path / case, client)
+            await orchestrator.submit(
+                AssistantRequest(
+                    text="Đặt AC 25 độ và quạt mức 1.",
+                    source="text",
+                    session_id="test",
+                )
+            )
+            await orchestrator.wait_idle()
 
-        await orchestrator.submit(
-            AssistantRequest(text="Đặt AC 25 độ và quạt mức 1.", source="text", session_id="test")
-        )
-        await orchestrator.wait_idle()
-
-        after = await engine.snapshot()
-        conversation = storage.conversations(1)[0]
-        assert after == before
-        assert conversation.status == "failed"
-        assert "outage" in conversation.error_message
+            after = await engine.snapshot()
+            conversation = storage.conversations(1)[0]
+            assert after.devices.ac.temperature_c == 25
+            assert after.devices.fan.speed == 1
+            assert conversation.status == "completed"
+            assert conversation.error_message == ""
+            assert "điều hòa 25°C" in conversation.assistant_text
+            with storage.connect() as connection:
+                failed_final_call = connection.execute(
+                    "SELECT status FROM assistant_trace_events "
+                    "WHERE stage = 'model_requested' AND status = 'failed'"
+                ).fetchone()
+            assert failed_final_call is not None
 
     asyncio.run(run())
 

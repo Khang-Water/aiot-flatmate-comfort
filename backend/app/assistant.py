@@ -676,6 +676,19 @@ Mục tiêu:
 Dừng khi đã có đủ dữ liệu và một phản hồi cuối hữu ích.
 """.strip()
 
+ACTION_RESPONSE_INSTRUCTIONS = """
+Bạn viết toàn bộ phản hồi cuối của FlatMate Comfort sau khi backend đã áp dụng hành động.
+
+Dữ liệu JSON người dùng cung cấp là nguồn sự thật duy nhất:
+- Chỉ xác nhận thay đổi có trong committed_changes; không dùng giá trị preview hoặc dự đoán.
+- Nếu committed_changes rỗng, nói trạng thái đã phù hợp và không có thay đổi thừa.
+- Dựa vào committed_snapshot để mô tả trạng thái hiện tại và cảnh báo sát ngữ cảnh.
+- Nếu ventilation_warning_required=true, phải nhắc CO₂ đang cao và nên mở cửa sổ khi có thể;
+  không nói không gian đã hoàn toàn sẵn sàng.
+- Nếu preference_saved=true, có thể nói đã ghi nhớ. Nếu preference_used=true, có thể nói đã dùng sở thích đã lưu.
+- Trả lời tiếng Việt, thân thiện, chu đáo, 1–3 câu. Không xuất JSON, tên field, tool call hoặc suy luận nội bộ.
+""".strip()
+
 
 class AssistantNotConfigured(RuntimeError):
     pass
@@ -749,6 +762,64 @@ class AssistantOrchestrator:
             task.cancel()
             with suppress(asyncio.CancelledError):
                 await task
+
+    async def _generate_action_response(
+        self,
+        *,
+        request: AssistantRequest,
+        request_context: Context,
+        preparation_context: Context | None,
+        changes: list[ChangedValue],
+        snapshot: RoomSnapshot,
+        preference_saved: bool,
+        preference_used: bool,
+    ) -> str:
+        payload = {
+            "user_request": request.text,
+            "request_context": request_context,
+            "preparation_context": preparation_context,
+            "committed_changes": [change.model_dump(mode="json") for change in changes],
+            "committed_snapshot": assistant_snapshot(snapshot),
+            "preference_saved": preference_saved,
+            "preference_used": preference_used,
+            "ventilation_warning_required": (
+                preparation_context is not None
+                and snapshot.environment.co2_ppm >= 1_000
+                and snapshot.openings.window_state == "closed"
+            ),
+        }
+        content = json.dumps(payload, ensure_ascii=False)
+        if self.api_mode == "chat_completions":
+            response = await asyncio.wait_for(
+                self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": ACTION_RESPONSE_INSTRUCTIONS},
+                        {"role": "user", "content": content},
+                    ],
+                    max_tokens=300,
+                ),
+                timeout=self.timeout_seconds,
+            )
+            model_content = response.choices[0].message.content
+            text = model_content if isinstance(model_content, str) else ""
+        else:
+            response = await asyncio.wait_for(
+                self.client.responses.create(
+                    model=self.model,
+                    instructions=ACTION_RESPONSE_INSTRUCTIONS,
+                    input=[{"role": "user", "content": content}],
+                    reasoning={"effort": self.reasoning_effort},
+                    text={"verbosity": "low"},
+                    store=False,
+                ),
+                timeout=self.timeout_seconds,
+            )
+            text = response.output_text or ""
+        text = text.strip()
+        if not text:
+            raise AssistantWorkflowError("Mô hình không trả về xác nhận sau hành động.")
+        return text
 
     async def _run(self, request_id: str, request: AssistantRequest) -> None:
         sequence = 0
@@ -1111,6 +1182,8 @@ class AssistantOrchestrator:
                                 "output": output,
                             }
                         )
+                if pending_scene is not None:
+                    break
             else:
                 if not scene_overrides:
                     raise AssistantWorkflowError("Vượt quá số vòng gọi công cụ cho phép.")
@@ -1159,9 +1232,10 @@ class AssistantOrchestrator:
                 )
                 if applied_preference_id:
                     self.storage.mark_preference_used(applied_preference_id, datetime.now(BANGKOK))
-                assistant_text = action_confirmation(
+                committed_snapshot = await self.engine.snapshot()
+                fallback_text = action_confirmation(
                     result.changed,
-                    snapshot=await self.engine.snapshot(),
+                    snapshot=committed_snapshot,
                     preparation_context=preparation_context,
                     preference_saved=preference_saved,
                     preference_used=applied_preference_id is not None,
@@ -1172,6 +1246,41 @@ class AssistantOrchestrator:
                     "Trạng thái căn hộ đã cập nhật",
                     data={"snapshot_version": result.snapshot_version},
                 )
+                started = perf_counter()
+                await trace(
+                    "model_requested",
+                    "started",
+                    "Đang tạo phản hồi từ trạng thái đã áp dụng",
+                    data={"model": self.model, "phase": "post_commit"},
+                )
+                try:
+                    assistant_text = await self._generate_action_response(
+                        request=request,
+                        request_context=request_context,
+                        preparation_context=preparation_context,
+                        changes=result.changed,
+                        snapshot=committed_snapshot,
+                        preference_saved=preference_saved,
+                        preference_used=applied_preference_id is not None,
+                    )
+                except Exception as error:
+                    assistant_text = fallback_text
+                    await trace(
+                        "model_requested",
+                        "failed",
+                        "Mô hình tạo phản hồi thất bại; đã dùng xác nhận dự phòng",
+                        summary=str(error),
+                        error=TraceError(code=type(error).__name__, message=str(error)),
+                        duration_ms=round((perf_counter() - started) * 1_000),
+                    )
+                else:
+                    await trace(
+                        "model_requested",
+                        "completed",
+                        "Mô hình đã viết phản hồi từ trạng thái thật",
+                        data={"phase": "post_commit", "tool_calls": 0},
+                        duration_ms=round((perf_counter() - started) * 1_000),
+                    )
 
             await trace(
                 "assistant_response",
