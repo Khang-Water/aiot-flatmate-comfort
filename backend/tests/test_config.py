@@ -1,6 +1,10 @@
 from app.config import Settings
 
 
+def test_default_model_timeout_allows_slow_gateway_responses() -> None:
+    assert Settings(_env_file=None).openai_timeout_seconds == 120
+
+
 def test_default_speech_models_are_cpu_friendly_and_high_quality() -> None:
     settings = Settings(_env_file=None)
 

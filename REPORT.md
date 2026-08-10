@@ -591,14 +591,14 @@ Container benchmark bị giới hạn bằng `--memory=512m --cpus=0.1`, không 
 
 | Kiểm tra | Kết quả |
 | --- | --- |
-| Pytest | 72 passed, 1 skipped |
+| Pytest | 73 passed, 1 skipped |
 | Ruff | All checks passed |
 | Frontend domain checks | geometry, voice, trace, privacy, accessibility passed |
 | TypeScript | `tsc --noEmit` passed |
 | Next.js production build | compiled và prerendered thành công |
 | Draw.io architecture validation | 0 error; 2 edge-crossing warnings, không có edge đi qua node |
 
-Test bao phủ contract, scenario loading, deterministic reset, history clamp, atomic command, assistant tool loop, post-commit LLM response không có tool, payload dùng `ChangedValue` và snapshot đã commit, fallback khi lượt sinh lời cuối lỗi, ID preference hallucinated không chặn lệnh tắt toàn bộ, năm context và chuyển context, explicit-value enforcement, màu đèn tiếng Việt, work/sleep preparation, CO₂ ventilation, user negation, no-op confirmation, trạng thái failed sau scene bị bỏ dở, preference isolation, correction áp dụng ngay, implicit candidate gating và promotion brightness/color sau ba manual override, TTS text normalization, VieNeu/Piper initialization failure cache, Piper WAV contract và giới hạn text runtime.
+Test bao phủ contract, scenario loading, deterministic reset, history clamp, atomic command, assistant tool loop, timeout model mặc định 120 giây, post-commit LLM response không có tool, payload dùng `ChangedValue` và snapshot đã commit, fallback khi lượt sinh lời cuối lỗi, ID preference hallucinated không chặn lệnh tắt toàn bộ, năm context và chuyển context, explicit-value enforcement, màu đèn tiếng Việt, work/sleep preparation, CO₂ ventilation, user negation, no-op confirmation, trạng thái failed sau scene bị bỏ dở, preference isolation, correction áp dụng ngay, implicit candidate gating và promotion brightness/color sau ba manual override, TTS text normalization, VieNeu/Piper initialization failure cache, Piper WAV contract và giới hạn text runtime.
 
 ## 11. Đánh giá
 
@@ -666,6 +666,7 @@ TTS_ENABLED=true
 LOCAL_ASR_ENABLED=true
 NEXT_PUBLIC_SPEECH_MODE=local
 NEXT_PUBLIC_TTS_MODE=backend
+OPENAI_TIMEOUT_SECONDS=120
 
 ASR_MODEL=small
 ASR_DEVICE=cpu
@@ -684,7 +685,7 @@ PIPER_VOICE=vi_VN-vais1000-medium
 
 ### 12.3. Triển khai Render Free
 
-Docker build frontend với `NEXT_PUBLIC_SPEECH_MODE=browser` và `NEXT_PUBLIC_TTS_MODE=backend`, cài backend chỉ với extra `piper`, bật backend TTS và đặt `LOCAL_ASR_ENABLED=false`. Model `vi_VN-vais1000-medium` được bundle và kiểm SHA-256. `render.yaml` dùng gói `free`; Chrome/Edge thực hiện recognition trên HTTPS, còn FastAPI trả Piper WAV. SQLite đặt tại `/tmp/flatmate.db`, vì vậy history, conversation và learned preference không bền qua deploy hoặc restart. Khi cần persistence hoặc throughput speech cao hơn, dùng paid instance cùng persistent disk/CPU phù hợp.
+Docker build frontend với `NEXT_PUBLIC_SPEECH_MODE=browser` và `NEXT_PUBLIC_TTS_MODE=backend`, cài backend chỉ với extra `piper`, bật backend TTS và đặt `LOCAL_ASR_ENABLED=false`. Model `vi_VN-vais1000-medium` được bundle và kiểm SHA-256. `render.yaml` dùng gói `free` và timeout 120 giây cho từng lượt model request để tránh đóng kết nối sớm khi gateway có latency cao; Chrome/Edge thực hiện recognition trên HTTPS, còn FastAPI trả Piper WAV. SQLite đặt tại `/tmp/flatmate.db`, vì vậy history, conversation và learned preference không bền qua deploy hoặc restart. Khi cần persistence hoặc throughput speech cao hơn, dùng paid instance cùng persistent disk/CPU phù hợp.
 
 ## 13. Hướng phát triển
 

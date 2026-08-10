@@ -30,7 +30,7 @@ Khi người dùng chỉnh thủ công đúng thuộc tính vừa được trợ
 
 Thao tác không hợp lệ hoặc yêu cầu trợ lý thất bại không làm thay đổi trạng thái căn hộ. Khi chưa cấu hình `OPENAI_API_KEY`, mô phỏng, bảng theo dõi và điều khiển thủ công vẫn hoạt động; local speech endpoint vẫn có thể kiểm tra độc lập.
 
-Kết quả kiểm tra hiện tại: 72 phép kiểm thử phía máy chủ đạt, 1 phép kiểm thử phụ thuộc môi trường được bỏ qua; Ruff, kiểm tra miền dữ liệu giao diện, TypeScript, bản dựng sản xuất và Docker smoke test đều đạt.
+Kết quả kiểm tra hiện tại: 73 phép kiểm thử phía máy chủ đạt, 1 phép kiểm thử phụ thuộc môi trường được bỏ qua; Ruff, kiểm tra miền dữ liệu giao diện, TypeScript, bản dựng sản xuất và Docker smoke test đều đạt.
 
 ## Công nghệ
 
@@ -96,7 +96,7 @@ make smoke
 
 ## Triển khai toàn bộ trên Render
 
-`render.yaml` tạo một dịch vụ Docker trên Render Free. Next.js được build với `NEXT_PUBLIC_SPEECH_MODE=browser` cho ASR và `NEXT_PUBLIC_TTS_MODE=backend` cho TTS. FastAPI chỉ cài extra `piper`, bundle model medium đã ghim SHA-256, đặt `LOCAL_ASR_ENABLED=false` và trả WAV từ `/api/tts`. `.dockerignore` chặn local virtualenv và `node_modules` khỏi build context.
+`render.yaml` tạo một dịch vụ Docker trên Render Free. Next.js được build với `NEXT_PUBLIC_SPEECH_MODE=browser` cho ASR và `NEXT_PUBLIC_TTS_MODE=backend` cho TTS. FastAPI chỉ cài extra `piper`, bundle model medium đã ghim SHA-256, đặt `LOCAL_ASR_ENABLED=false` và trả WAV từ `/api/tts`. Mỗi lượt gọi LLM có timeout `120` giây để chịu được độ trễ không ổn định của gateway. `.dockerignore` chặn local virtualenv và `node_modules` khỏi build context.
 
 ### Các bước triển khai
 

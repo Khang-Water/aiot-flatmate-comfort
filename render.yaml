@@ -20,7 +20,7 @@ services:
       - key: OPENAI_REASONING_EFFORT
         value: low
       - key: OPENAI_TIMEOUT_SECONDS
-        value: "45"
+        value: "120"
       - key: WEB_ORIGIN
         value: https://flatmate-comfort.onrender.com
       - key: DATABASE_PATH

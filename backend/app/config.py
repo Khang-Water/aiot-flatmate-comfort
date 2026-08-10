@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-5.6-sol"
     openai_api_mode: Literal["responses", "chat_completions"] = "responses"
     openai_reasoning_effort: str = "low"
-    openai_timeout_seconds: float = Field(default=45, gt=0, le=180)
+    openai_timeout_seconds: float = Field(default=120, gt=0, le=180)
     tts_enabled: bool = True
     local_asr_enabled: bool = True
     tts_engine: Literal["vieneu", "supertonic", "piper"] = "vieneu"

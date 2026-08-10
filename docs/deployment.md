@@ -6,7 +6,7 @@ FlatMate Comfort dùng một Render Free Web Service để chạy frontend tĩnh
 
 - `Dockerfile`: build frontend với browser ASR và backend TTS, rồi tạo runtime Python 3.11 chỉ có optional extra `piper`.
 - `.dockerignore`: allowlist build context, loại `backend/.venv`, `frontend/node_modules`, output build và file ngoài runtime.
-- `render.yaml`: bật backend TTS, tắt backend ASR, chọn `vi_VN-vais1000-medium` và giới hạn 800 ký tự mỗi request.
+- `render.yaml`: bật backend TTS, tắt backend ASR, chọn `vi_VN-vais1000-medium`, giới hạn 800 ký tự mỗi request và đặt timeout mỗi lượt gọi LLM là 120 giây.
 - `/app/models/vi_VN-vais1000-medium.onnx`: model 63.2 MB được bundle khi build và xác minh SHA-256.
 - `/tmp/flatmate.db`: SQLite tạm thời trong instance.
 
@@ -26,6 +26,7 @@ OPENAI_MODEL
 
 Nếu dùng OpenAI trực tiếp, có thể để trống `OPENAI_BASE_URL`. `OPENAI_MODEL` phải là model mà API key hiện tại có quyền sử dụng.
 Blueprint đặt `OPENAI_API_MODE=chat_completions` để tương thích gateway Vilao/Gemini. Localhost giữ mặc định `responses` cho 9Router.
+`OPENAI_TIMEOUT_SECONDS=120` áp dụng cho từng lượt model request; giá trị này tránh backend đóng kết nối sớm khi gateway phản hồi chậm.
 
 ## Tài nguyên
 
