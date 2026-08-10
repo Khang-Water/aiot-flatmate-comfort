@@ -187,6 +187,56 @@ def test_chat_completions_accepts_null_string_preference_sentinel(tmp_path: Path
     asyncio.run(run())
 
 
+def test_unknown_preference_id_does_not_block_turn_everything_off(tmp_path: Path) -> None:
+    async def run() -> None:
+        client = FakeChatClient([
+            chat_response(
+                chat_tool_call(
+                    "set_room_scene",
+                    {
+                        "change_mode": "explicit",
+                        "ac_power": False,
+                        "fan_power": False,
+                        "main_light_power": False,
+                        "bedside_light_power": False,
+                        "air_purifier_power": False,
+                        "humidity_device_power": False,
+                        "desk_computer_power": False,
+                        "monitor_power": False,
+                        "applied_preference_id": "hallucinated-preference-id",
+                        "reason": "Tắt toàn bộ thiết bị dùng điện.",
+                    },
+                    "call-1",
+                )
+            ),
+            chat_response(text="Tôi đã tắt toàn bộ thiết bị dùng điện."),
+        ])
+        orchestrator, engine, storage = build_orchestrator(tmp_path, client, "chat_completions")
+
+        await orchestrator.submit(AssistantRequest(text="Tắt hết cho tôi.", session_id="test"))
+        await orchestrator.wait_idle()
+
+        snapshot = await engine.snapshot()
+        conversation = storage.conversations(1)[0]
+        assert conversation.status == "completed"
+        assert snapshot.devices.ac.power is False
+        assert snapshot.devices.fan.power is False
+        assert snapshot.devices.main_light.power is False
+        assert snapshot.devices.bedside_light.power is False
+        assert snapshot.devices.air_purifier.power is False
+        assert snapshot.devices.humidity_device.power is False
+        assert snapshot.power.smart_plugs["desk_computer"].state == "off"
+        assert snapshot.power.smart_plugs["monitor"].state == "off"
+        with storage.connect() as connection:
+            validation_data = connection.execute(
+                "SELECT data_json FROM assistant_trace_events "
+                "WHERE stage = 'validation_completed' AND status = 'completed'"
+            ).fetchone()[0]
+        assert json.loads(validation_data)["applied_preference_id"] is None
+
+    asyncio.run(run())
+
+
 def test_shutdown_confirmation_does_not_claim_work_scene_is_ready() -> None:
     reply = action_confirmation(
         [

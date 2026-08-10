@@ -37,6 +37,7 @@ MediaRecorder -> /api/asr        SpeechRecognition vi-VN
 - Own configuration, request lifecycle, REST endpoints, and SSE stream.
 - Infer deterministic context before contacting the model.
 - Retrieve context-scoped preferences before the model request.
+- Treat model-supplied preference IDs as optional provenance; ignore unknown IDs and never mark them used.
 - Enforce explicit numeric targets and deterministic Vietnamese light-color mappings before scene validation.
 - Normalize model power/level dependencies, enforce CO₂ ventilation for work/sleep preparation, and preserve explicit user negation.
 - Run OpenAI Responses tool loop and publish safe trace events.

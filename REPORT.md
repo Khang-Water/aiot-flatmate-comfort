@@ -336,7 +336,7 @@ Các ràng buộc liên thuộc:
 
 `change_mode="explicit"` dùng khi người dùng nêu giá trị rõ ràng. `change_mode="bounded"` dùng cho yêu cầu cảm tính; guardrail giới hạn mức thay đổi thay vì cho phép bước nhảy lớn.
 
-Backend không còn tin hoàn toàn vào mode do model chọn. Yêu cầu chứa giá trị cụ thể như `50%`, `20°C`, `mức 2` hoặc `2700K` được ép sang `explicit`. Với ánh sáng, các cụm tiếng Việt có độ chắc chắn cao được chuẩn hóa: vàng/trắng ấm là `2700K`, trắng trung tính là `4000K`, trắng lạnh là `6500K`. Nếu model bỏ qua tool hoặc gửi target đèn sai cho một lệnh rõ ràng, backend dựng scene tối thiểu từ intent đã chuẩn hóa. Sau khi scene được commit, backend gọi LLM thêm một lượt không có tool với yêu cầu gốc, `ChangedValue` thật, snapshot sau commit, context và trạng thái preference. LLM viết toàn bộ phản hồi cuối trong 1–3 câu; câu xác nhận tất định chỉ là fallback khi API lỗi hoặc trả rỗng.
+Backend không còn tin hoàn toàn vào mode do model chọn. Yêu cầu chứa giá trị cụ thể như `50%`, `20°C`, `mức 2` hoặc `2700K` được ép sang `explicit`. Với ánh sáng, các cụm tiếng Việt có độ chắc chắn cao được chuẩn hóa: vàng/trắng ấm là `2700K`, trắng trung tính là `4000K`, trắng lạnh là `6500K`. Nếu model bỏ qua tool hoặc gửi target đèn sai cho một lệnh rõ ràng, backend dựng scene tối thiểu từ intent đã chuẩn hóa. `applied_preference_id` chỉ là metadata provenance: ID không nằm trong preference đang hiệu lực bị bỏ thành `null`, không được đánh dấu đã dùng và không làm hỏng scene thiết bị hợp lệ. Sau khi scene được commit, backend gọi LLM thêm một lượt không có tool với yêu cầu gốc, `ChangedValue` thật, snapshot sau commit, context và trạng thái preference. LLM viết toàn bộ phản hồi cuối trong 1–3 câu; câu xác nhận tất định chỉ là fallback khi API lỗi hoặc trả rỗng.
 
 ### 6.3. Observable trace
 
@@ -591,14 +591,14 @@ Container benchmark bị giới hạn bằng `--memory=512m --cpus=0.1`, không 
 
 | Kiểm tra | Kết quả |
 | --- | --- |
-| Pytest | 71 passed, 1 skipped |
+| Pytest | 72 passed, 1 skipped |
 | Ruff | All checks passed |
 | Frontend domain checks | geometry, voice, trace, privacy, accessibility passed |
 | TypeScript | `tsc --noEmit` passed |
 | Next.js production build | compiled và prerendered thành công |
 | Draw.io architecture validation | 0 error; 2 edge-crossing warnings, không có edge đi qua node |
 
-Test bao phủ contract, scenario loading, deterministic reset, history clamp, atomic command, assistant tool loop, post-commit LLM response không có tool, payload dùng `ChangedValue` và snapshot đã commit, fallback khi lượt sinh lời cuối lỗi, năm context và chuyển context, explicit-value enforcement, màu đèn tiếng Việt, work/sleep preparation, CO₂ ventilation, user negation, no-op confirmation, trạng thái failed sau scene bị bỏ dở, preference isolation, correction áp dụng ngay, implicit candidate gating và promotion brightness/color sau ba manual override, TTS text normalization, VieNeu/Piper initialization failure cache, Piper WAV contract và giới hạn text runtime.
+Test bao phủ contract, scenario loading, deterministic reset, history clamp, atomic command, assistant tool loop, post-commit LLM response không có tool, payload dùng `ChangedValue` và snapshot đã commit, fallback khi lượt sinh lời cuối lỗi, ID preference hallucinated không chặn lệnh tắt toàn bộ, năm context và chuyển context, explicit-value enforcement, màu đèn tiếng Việt, work/sleep preparation, CO₂ ventilation, user negation, no-op confirmation, trạng thái failed sau scene bị bỏ dở, preference isolation, correction áp dụng ngay, implicit candidate gating và promotion brightness/color sau ba manual override, TTS text normalization, VieNeu/Piper initialization failure cache, Piper WAV contract và giới hạn text runtime.
 
 ## 11. Đánh giá
 

@@ -1116,10 +1116,12 @@ class AssistantOrchestrator:
                                 model_preference_id = normalize_optional_preference_id(
                                     arguments.pop("applied_preference_id", None)
                                 )
-                                requested_preference_id = automatic_preference_id or model_preference_id
                                 valid_preference_ids = {preference.id for preference in relevant_preferences}
-                                if requested_preference_id not in valid_preference_ids | {None}:
-                                    raise ValueError("Preference chưa có hiệu lực, hết hạn hoặc không phù hợp context.")
+                                requested_preference_id = automatic_preference_id or (
+                                    model_preference_id
+                                    if model_preference_id in valid_preference_ids
+                                    else None
+                                )
                                 resolved_arguments = resolve_scene_arguments(
                                     arguments,
                                     scene_overrides,
