@@ -82,7 +82,7 @@ A successful `source="manual"` command can also create implicit preference evide
 
 Returns `202` with `request_id`. Progress arrives as `trace` SSE events. Only one assistant request mutates room state at a time; overlapping request returns `409`.
 
-Missing `OPENAI_API_KEY` returns `503 openai_not_configured`. Model or final-response failure leaves pending device targets unapplied.
+Missing `OPENAI_API_KEY` returns `503 openai_not_configured`. Model/tool failure before commit leaves pending device targets unapplied. If post-commit response generation fails or returns empty text, backend keeps the applied action and returns deterministic fallback confirmation.
 
 Model tools:
 
