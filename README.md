@@ -1,6 +1,6 @@
 # FlatMate Comfort
 
-[Đọc báo cáo kỹ thuật tiếng Việt](https://khang-water.github.io/aiot-flatmate-comfort/)
+[Đọc báo cáo kỹ thuật tiếng Việt](https://khang-water.github.io/aiot-flatmate-comfort/) · [Báo cáo Word](deliverables/BaoCao.docx) · [Slide HTML](deliverables/FlatMate-Comfort-NT532-Presentation.html) · [Slide PDF](deliverables/SlideBaoCao.pdf)
 
 FlatMate Comfort là đồ án AIoT môn NT532, mô phỏng căn hộ thông minh một phòng ngủ có khả năng cá nhân hóa. Python sinh dữ liệu cảm biến và trạng thái thiết bị; giao diện web tiếng Việt dựng bản sao số 3D theo kích thước, nhận yêu cầu văn bản hoặc giọng nói, hiển thị các bước xử lý của trợ lý, cung cấp bảng theo dõi và học sở thích từ cả yêu cầu rõ ràng lẫn thao tác chỉnh lại kết quả của trợ lý.
 
@@ -30,7 +30,15 @@ Khi người dùng chỉnh thủ công đúng thuộc tính vừa được trợ
 
 Thao tác không hợp lệ hoặc yêu cầu trợ lý thất bại không làm thay đổi trạng thái căn hộ. Khi chưa cấu hình `OPENAI_API_KEY`, mô phỏng, bảng theo dõi và điều khiển thủ công vẫn hoạt động; local speech endpoint vẫn có thể kiểm tra độc lập.
 
-Kết quả kiểm tra hiện tại: 75 phép kiểm thử phía máy chủ đạt, 1 phép kiểm thử phụ thuộc môi trường được bỏ qua; Ruff, kiểm tra miền dữ liệu giao diện, TypeScript, bản dựng sản xuất và Docker smoke test đều đạt.
+Kết quả kiểm tra xác minh ngày 11/08/2026: 75 phép kiểm thử phía máy chủ đạt, 1 phép kiểm thử phụ thuộc môi trường được bỏ qua; Ruff, kiểm tra miền dữ liệu giao diện, TypeScript, bản dựng sản xuất và Docker smoke test đều đạt.
+
+## Luồng demo đề xuất
+
+1. Mở bản sao số 3D và chọn kịch bản `hot_room`.
+2. Gửi yêu cầu “Phòng rất nóng, hãy làm mát vừa phải.” bằng văn bản hoặc push-to-talk.
+3. Theo dõi chuỗi `snapshot → context → preference → model tool → guardrail → commit → response` trên trace.
+4. Mở dashboard để xác nhận AC, quạt, cảm biến và biểu đồ 24 giờ đã cập nhật đồng bộ.
+5. Chỉnh lại cùng một thuộc tính sau hành động của trợ lý trong ba lượt phù hợp để minh họa implicit preference promotion.
 
 ## Công nghệ
 
@@ -47,7 +55,9 @@ Kết quả kiểm tra hiện tại: 75 phép kiểm thử phía máy chủ đ�
 ## Tài liệu
 
 - [Báo cáo kỹ thuật hoàn chỉnh](REPORT.md)
-- [Báo cáo Word](deliverables/FlatMate-Comfort-NT532-Technical-Report.docx)
+- [Báo cáo Word](deliverables/BaoCao.docx)
+- [Slide trình bày HTML 16:9](deliverables/FlatMate-Comfort-NT532-Presentation.html)
+- [Slide trình bày PDF](deliverables/SlideBaoCao.pdf)
 - [Đề bài NT532 đã chuyển sang Markdown](docs/source/NT532-Project-Instruction.md)
 - [Sơ đồ kiến trúc có thể chỉnh sửa](docs/figures/flatmate-system-architecture.drawio)
 - [Ảnh sơ đồ kiến trúc](docs/figures/flatmate-system-architecture.png)

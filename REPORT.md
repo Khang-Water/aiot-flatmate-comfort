@@ -15,7 +15,8 @@ permalink: /
 **Sinh viên thực hiện:** Khang Lê \
 **MSSV:** Chưa được cung cấp trong repository \
 **Thành viên thứ hai:** Chưa được cung cấp trong repository \
-**Ngày cập nhật báo cáo:** 09/08/2026
+**Ngày cập nhật báo cáo:** 11/08/2026 \
+**Bản trình bày:** [HTML](deliverables/FlatMate-Comfort-NT532-Presentation.html) · [PDF](deliverables/SlideBaoCao.pdf)
 
 > Tài liệu hướng dẫn yêu cầu thông tin đầy đủ của tác giả và nhóm hai thành viên. Báo cáo không tự suy đoán MSSV hoặc danh tính thành viên còn thiếu; các trường trên cần được bổ sung trước khi nộp bản chính thức.
 
@@ -625,7 +626,9 @@ Test bao phủ contract, scenario loading, deterministic reset, history clamp, a
 | Demo logs/scenarios/results | Mục 10 |
 | Numerical data | Mục 10.1–10.4 |
 | References | Mục 14 |
-| Technical Report Word | `deliverables/FlatMate-Comfort-NT532-Technical-Report.docx` |
+| Technical Report Word | `deliverables/BaoCao.docx` |
+| Presentation | `deliverables/FlatMate-Comfort-NT532-Presentation.html` |
+| Presentation PDF | `deliverables/SlideBaoCao.pdf` |
 
 ### 11.2. Điểm mạnh
 

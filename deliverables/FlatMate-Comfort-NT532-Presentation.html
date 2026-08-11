@@ -1,0 +1,2167 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Slide báo cáo đồ án NT532 — FlatMate Comfort">
+  <title>FlatMate Comfort — Báo cáo đồ án NT532</title>
+
+  <!-- === TYPOGRAPHY: DISTINCTIVE DISPLAY + VIETNAMESE BODY === -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&display=swap" rel="stylesheet">
+
+  <style>
+    /* ===========================================
+       FIXED 16:9 STAGE: MANDATORY BASE STYLES
+       Include this ENTIRE file in every presentation.
+       Slides are authored at 1920×1080 and scaled as a whole.
+       =========================================== */
+
+    /* 1. Lock the browser viewport */
+    html,
+    body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: var(--stage-bg, #000);
+    }
+
+    /* 2. Full-window deck viewport */
+    .deck-viewport {
+        position: fixed;
+        inset: 0;
+        overflow: hidden;
+        background: var(--stage-bg, #000);
+    }
+
+    /* 3. Fixed 16:9 design canvas.
+       JavaScript sets transform: translate(...) scale(...). */
+    .deck-stage {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        transform-origin: 0 0;
+        background: var(--slide-bg, #fff);
+    }
+
+    /* 4. Slides stack inside the fixed stage.
+       Content must be laid out at 1920×1080, not reflowed per device. */
+    .slide {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        display: block;
+        visibility: hidden;
+        opacity: 0;
+        pointer-events: none;
+        background: var(--slide-bg, #fff);
+    }
+
+    .slide.active,
+    .slide.visible {
+        visibility: visible;
+        opacity: 1;
+        pointer-events: auto;
+        z-index: 1;
+    }
+
+    /* 5. Keep media inside authored slide bounds */
+    img,
+    video,
+    canvas,
+    svg {
+        max-width: 100%;
+        max-height: 100%;
+    }
+
+    /* 6. Presentation chrome stays outside the slide design system */
+    .deck-controls {
+        position: fixed;
+        left: 50%;
+        bottom: 22px;
+        transform: translateX(-50%);
+        z-index: 1000;
+    }
+
+    /* 7. Print one fixed-size slide per page */
+    @media print {
+        html,
+        body {
+            width: 1920px;
+            height: auto;
+            overflow: visible;
+            background: #fff;
+        }
+
+        .deck-viewport {
+            position: static;
+            overflow: visible;
+            background: #fff;
+        }
+
+        .deck-stage {
+            position: static;
+            width: auto;
+            height: auto;
+            transform: none !important;
+            background: none;
+        }
+
+        .slide {
+            position: relative;
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+            width: 1920px;
+            height: 1080px;
+            break-after: page;
+            page-break-after: always;
+        }
+
+        .slide:last-child {
+            break-after: auto;
+            page-break-after: auto;
+        }
+
+        .deck-controls {
+            display: none !important;
+        }
+    }
+
+    /* 8. Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.2s !important;
+        }
+    }
+
+    /* === THEME TOKENS: DOMESTIC INTELLIGENCE === */
+    :root {
+      --stage-bg: #15362d;
+      --slide-bg: #f2e6ce;
+      --forest: #214f3d;
+      --forest-dark: #15362d;
+      --forest-soft: #476d5d;
+      --sand: #f2e6ce;
+      --cream: #fffaf0;
+      --paper: #f8f0df;
+      --orange: #e58046;
+      --orange-dark: #bc5d31;
+      --lime: #cfe66d;
+      --ink: #1e2c26;
+      --muted: #607269;
+      --line: rgba(30, 44, 38, 0.18);
+      --white-line: rgba(255, 250, 240, 0.22);
+      --ease: cubic-bezier(.16, .85, .25, 1);
+      --display: "Bricolage Grotesque", sans-serif;
+      --body: "Be Vietnam Pro", sans-serif;
+    }
+
+    /* === GLOBAL RESET + TYPOGRAPHY === */
+    * { box-sizing: border-box; }
+
+    body {
+      color: var(--ink);
+      font-family: var(--body);
+    }
+
+    button { font: inherit; }
+
+    h1,
+    h2,
+    h3,
+    p { margin: 0; }
+
+    h1,
+    h2,
+    h3 { font-family: var(--display); }
+
+    h2 {
+      max-width: 1450px;
+      font-size: 92px;
+      line-height: .98;
+      letter-spacing: -.045em;
+      color: var(--forest-dark);
+    }
+
+    .forest-slide h2,
+    .orange-slide h2 { color: var(--cream); }
+
+    .accent { color: var(--orange); }
+    .lime { color: var(--lime); }
+    .nowrap { white-space: nowrap; }
+
+    /* === SLIDE SURFACES + ATMOSPHERE === */
+    .slide {
+      background: var(--sand);
+      color: var(--ink);
+    }
+
+    .forest-slide {
+      background: var(--forest-dark);
+      color: var(--cream);
+    }
+
+    .cream-slide { background: var(--cream); }
+
+    .orange-slide {
+      background: var(--orange-dark);
+      color: var(--cream);
+    }
+
+    .ambient-rings {
+      position: absolute;
+      width: 1280px;
+      height: 1280px;
+      right: -520px;
+      top: -360px;
+      border: 2px solid rgba(33,79,61,.12);
+      border-radius: 50%;
+      box-shadow: 0 0 0 120px rgba(33,79,61,.035), 0 0 0 240px rgba(33,79,61,.02);
+      pointer-events: none;
+    }
+
+    .forest-slide .ambient-rings {
+      border-color: rgba(207,230,109,.10);
+      box-shadow: 0 0 0 120px rgba(207,230,109,.025), 0 0 0 240px rgba(207,230,109,.015);
+    }
+
+    .grid-field {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(30,44,38,.055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(30,44,38,.055) 1px, transparent 1px);
+      background-size: 80px 80px;
+      pointer-events: none;
+    }
+
+    .forest-slide .grid-field {
+      background-image:
+        linear-gradient(rgba(255,250,240,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,250,240,.035) 1px, transparent 1px);
+    }
+
+    /* === SHARED RAIL + PAGE CHROME === */
+    .rail {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 92px;
+      z-index: 8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 52px 0;
+      background: var(--forest-dark);
+      color: var(--cream);
+    }
+
+    .forest-slide .rail { background: var(--lime); color: var(--forest-dark); }
+    .orange-slide .rail { background: var(--sand); color: var(--forest-dark); }
+
+    .brand-mark {
+      width: 54px;
+      height: 54px;
+      display: grid;
+      place-items: center;
+      background: var(--lime);
+      color: var(--forest-dark);
+      font-family: var(--display);
+      font-size: 22px;
+      font-weight: 800;
+      transform: rotate(-7deg);
+    }
+
+    .forest-slide .brand-mark { background: var(--forest-dark); color: var(--lime); }
+    .orange-slide .brand-mark { background: var(--orange); color: var(--cream); }
+
+    .rail-label {
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      font-size: 16px;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+      opacity: .7;
+    }
+
+    .rail-page { font-size: 17px; font-weight: 600; }
+
+    .slide-inner {
+      position: absolute;
+      inset: 0 0 0 92px;
+      padding: 76px 92px 68px;
+      z-index: 2;
+    }
+
+    .slide-header {
+      position: relative;
+      z-index: 3;
+    }
+
+    .kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 26px;
+      padding: 9px 16px;
+      border: 2px solid currentColor;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .kicker::before {
+      content: "";
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--orange);
+      box-shadow: 0 0 0 8px rgba(229,128,70,.15);
+    }
+
+    .forest-slide .kicker::before { background: var(--lime); box-shadow: 0 0 0 8px rgba(207,230,109,.12); }
+
+    .section-line {
+      position: absolute;
+      left: 92px;
+      right: 0;
+      bottom: 49px;
+      height: 1px;
+      background: var(--line);
+    }
+
+    .forest-slide .section-line,
+    .orange-slide .section-line { background: var(--white-line); }
+
+    .footer-note {
+      position: absolute;
+      right: 72px;
+      bottom: 20px;
+      z-index: 4;
+      font-size: 14px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      opacity: .58;
+    }
+
+    /* === REVEAL MOTION === */
+    .reveal,
+    .reveal-left,
+    .reveal-scale {
+      opacity: 0;
+      transition: opacity .7s var(--ease), transform .7s var(--ease), filter .7s var(--ease);
+    }
+
+    .reveal { transform: translateY(34px); }
+    .reveal-left { transform: translateX(-42px); }
+    .reveal-scale { transform: scale(.94); }
+
+    .slide.visible .reveal,
+    .slide.visible .reveal-left,
+    .slide.visible .reveal-scale {
+      opacity: 1;
+      transform: translate(0, 0) scale(1);
+    }
+
+    /* Preserve authored centering/rotation while reveal motion runs. */
+    .plan-label.reveal { transform: rotate(-2deg) translateY(34px); }
+    .slide.visible .plan-label.reveal { transform: rotate(-2deg) translateY(0); }
+    .quote-strip.reveal-left { transform: translateX(-42px) rotate(-.4deg); }
+    .quote-strip:nth-child(2).reveal-left { transform: translateX(-42px) rotate(.6deg); }
+    .quote-strip:nth-child(3).reveal-left { transform: translateX(-42px) rotate(-.8deg); }
+    .slide.visible .quote-strip.reveal-left { transform: translateX(0) rotate(-.4deg); }
+    .slide.visible .quote-strip:nth-child(2).reveal-left { transform: translateX(0) rotate(.6deg); }
+    .slide.visible .quote-strip:nth-child(3).reveal-left { transform: translateX(0) rotate(-.8deg); }
+    .memory-arrow.reveal { transform: translate(-50%, 34px); }
+    .slide.visible .memory-arrow.reveal { transform: translate(-50%, 0); }
+    .shared-speech.reveal { transform: translate(-50%, 34px); }
+    .slide.visible .shared-speech.reveal { transform: translate(-50%, 0); }
+    .demo-request.reveal { transform: translateY(34px) rotate(-.5deg); }
+    .slide.visible .demo-request.reveal { transform: translateY(0) rotate(-.5deg); }
+    .qa-badge.reveal-scale { transform: rotate(-8deg) scale(.94); }
+    .slide.visible .qa-badge.reveal-scale { transform: rotate(-8deg) scale(1); }
+
+    .d1 { transition-delay: .08s; }
+    .d2 { transition-delay: .16s; }
+    .d3 { transition-delay: .24s; }
+    .d4 { transition-delay: .32s; }
+    .d5 { transition-delay: .40s; }
+    .d6 { transition-delay: .48s; }
+    .d7 { transition-delay: .56s; }
+
+    /* === TITLE SLIDE === */
+    .title-content {
+      position: absolute;
+      left: 160px;
+      top: 110px;
+      width: 990px;
+      z-index: 4;
+    }
+
+    .title-content h1 {
+      margin-top: 55px;
+      font-size: 166px;
+      line-height: .84;
+      letter-spacing: -.066em;
+      color: var(--forest-dark);
+    }
+
+    .title-content h1 span { display: block; }
+    .title-content h1 span:last-child { color: var(--orange); }
+
+    .title-tagline {
+      margin-top: 46px;
+      width: 820px;
+      font-size: 31px;
+      line-height: 1.42;
+      color: #40594f;
+    }
+
+    .title-plan {
+      position: absolute;
+      right: 80px;
+      top: 108px;
+      width: 635px;
+      height: 730px;
+      background: var(--forest);
+      clip-path: polygon(0 0, 100% 0, 100% 88%, 84% 100%, 0 100%);
+      z-index: 3;
+    }
+
+    .title-plan svg {
+      position: absolute;
+      inset: 56px;
+      width: 523px;
+      height: 618px;
+      overflow: visible;
+    }
+
+    .plan-label {
+      position: absolute;
+      right: 106px;
+      bottom: 153px;
+      z-index: 5;
+      width: 310px;
+      padding: 21px 25px;
+      background: var(--lime);
+      color: var(--forest-dark);
+      font-family: var(--display);
+      font-size: 24px;
+      font-weight: 700;
+      transform: rotate(-2deg);
+    }
+
+    .title-facts {
+      position: absolute;
+      left: 160px;
+      bottom: 73px;
+      display: flex;
+      gap: 20px;
+      z-index: 5;
+    }
+
+    .title-fact {
+      min-width: 205px;
+      padding: 17px 20px 14px;
+      border-top: 3px solid var(--forest);
+      font-size: 15px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .title-fact strong {
+      display: block;
+      font-family: var(--display);
+      font-size: 26px;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .title-byline {
+      position: absolute;
+      right: 80px;
+      bottom: 58px;
+      z-index: 5;
+      text-align: right;
+      font-size: 17px;
+      line-height: 1.55;
+    }
+
+    .pulse-node {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: node-pulse 2s ease-in-out infinite;
+    }
+
+    .pulse-node.p2 { animation-delay: .6s; }
+    .pulse-node.p3 { animation-delay: 1.15s; }
+
+    @keyframes node-pulse {
+      0%, 100% { opacity: .55; transform: scale(.85); }
+      50% { opacity: 1; transform: scale(1.25); }
+    }
+
+    /* === PROBLEM SLIDE === */
+    .problem-stage {
+      position: absolute;
+      left: 92px;
+      right: 0;
+      top: 280px;
+      bottom: 92px;
+    }
+
+    .quote-stack {
+      position: absolute;
+      left: 92px;
+      top: 40px;
+      width: 880px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .quote-strip {
+      padding: 23px 30px;
+      border: 2px solid var(--forest);
+      background: rgba(255,250,240,.42);
+      font-family: var(--display);
+      font-size: 35px;
+      font-weight: 650;
+      transform: rotate(-.4deg);
+    }
+
+    .quote-strip:nth-child(2) { margin-left: 78px; background: var(--lime); transform: rotate(.6deg); }
+    .quote-strip:nth-child(3) { margin-left: 28px; border-color: var(--orange); transform: rotate(-.8deg); }
+
+    .context-orbit {
+      position: absolute;
+      right: 104px;
+      top: 0;
+      width: 650px;
+      height: 570px;
+    }
+
+    .context-orbit .core {
+      position: absolute;
+      left: 218px;
+      top: 170px;
+      width: 230px;
+      height: 230px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--forest-dark);
+      color: var(--lime);
+      font-family: var(--display);
+      font-size: 112px;
+    }
+
+    .context-orbit::before,
+    .context-orbit::after {
+      content: "";
+      position: absolute;
+      left: 98px;
+      top: 50px;
+      width: 470px;
+      height: 470px;
+      border: 2px dashed rgba(33,79,61,.32);
+      border-radius: 50%;
+    }
+
+    .context-orbit::after {
+      left: 146px;
+      top: 98px;
+      width: 374px;
+      height: 374px;
+      border-style: solid;
+      border-color: rgba(229,128,70,.24);
+    }
+
+    .orbit-tag {
+      position: absolute;
+      padding: 11px 16px;
+      border: 1px solid var(--forest);
+      background: var(--paper);
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .orbit-tag.t1 { left: 22px; top: 100px; }
+    .orbit-tag.t2 { right: 0; top: 86px; }
+    .orbit-tag.t3 { left: 0; bottom: 112px; }
+    .orbit-tag.t4 { right: 6px; bottom: 95px; }
+    .orbit-tag.t5 { left: 270px; top: 6px; }
+    .orbit-tag.t6 { left: 272px; bottom: 8px; }
+
+    .formula-band {
+      position: absolute;
+      left: 92px;
+      bottom: 0;
+      padding: 18px 26px;
+      background: var(--orange);
+      color: var(--cream);
+      font-family: var(--display);
+      font-size: 30px;
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+
+    /* === AIOT CYCLE === */
+    .cycle-grid {
+      position: absolute;
+      left: 92px;
+      right: 92px;
+      top: 390px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 28px;
+    }
+
+    .cycle-step {
+      position: relative;
+      min-height: 330px;
+      padding: 36px 30px 28px;
+      border-top: 6px solid var(--forest);
+      background: rgba(255,250,240,.48);
+    }
+
+    .cycle-step:nth-child(2) { border-color: var(--orange); }
+    .cycle-step:nth-child(3) { border-color: var(--lime); background: var(--forest); color: var(--cream); }
+    .cycle-step:nth-child(4) { border-color: var(--forest-dark); }
+
+    .cycle-number {
+      font-family: var(--display);
+      font-size: 28px;
+      color: var(--orange);
+    }
+
+    .cycle-step h3 {
+      margin-top: 70px;
+      font-size: 47px;
+      line-height: 1;
+    }
+
+    .cycle-step p {
+      margin-top: 22px;
+      font-size: 23px;
+      line-height: 1.42;
+      color: var(--muted);
+    }
+
+    .cycle-step:nth-child(3) p { color: rgba(255,250,240,.72); }
+
+    .scope-strip {
+      position: absolute;
+      left: 184px;
+      right: 94px;
+      bottom: 78px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 17px;
+      color: var(--muted);
+    }
+
+    /* === PRODUCT SCREENSHOT === */
+    .product-layout {
+      position: absolute;
+      left: 92px;
+      right: 92px;
+      top: 312px;
+      bottom: 92px;
+      display: grid;
+      grid-template-columns: 540px 1fr;
+      gap: 56px;
+      align-items: center;
+    }
+
+    .feature-list {
+      display: grid;
+      gap: 28px;
+    }
+
+    .feature-item {
+      padding: 20px 0 20px 28px;
+      border-left: 5px solid var(--orange);
+    }
+
+    .feature-item:nth-child(2) { border-color: var(--lime); }
+    .feature-item:nth-child(3) { border-color: var(--forest); }
+
+    .feature-item strong {
+      display: block;
+      font-family: var(--display);
+      font-size: 34px;
+    }
+
+    .feature-item span {
+      display: block;
+      margin-top: 8px;
+      font-size: 21px;
+      line-height: 1.42;
+      color: var(--muted);
+    }
+
+    .screen-frame {
+      position: relative;
+      height: 650px;
+      padding: 18px;
+      background: var(--forest-dark);
+      clip-path: polygon(0 0, 100% 0, 100% 92%, 95% 100%, 0 100%);
+      box-shadow: 26px 26px 0 rgba(229,128,70,.18);
+    }
+
+    .screen-frame::before {
+      content: "LIVE PRODUCT";
+      position: absolute;
+      left: 24px;
+      top: 22px;
+      z-index: 2;
+      padding: 8px 12px;
+      background: var(--lime);
+      color: var(--forest-dark);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .1em;
+    }
+
+    .screen-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top center;
+      border: 1px solid rgba(255,250,240,.18);
+    }
+
+    /* === ARCHITECTURE LAYERS === */
+    .architecture {
+      position: absolute;
+      left: 92px;
+      right: 92px;
+      top: 350px;
+      bottom: 112px;
+      display: grid;
+      grid-template-columns: 1.05fr 1.1fr 1.15fr 1fr;
+      gap: 26px;
+      align-items: stretch;
+    }
+
+    .arch-layer {
+      position: relative;
+      padding: 32px 28px;
+      border: 2px solid rgba(255,250,240,.35);
+      color: var(--cream);
+    }
+
+    .arch-layer:nth-child(1) { background: #2d624e; }
+    .arch-layer:nth-child(2) { background: #a7502d; }
+    .arch-layer:nth-child(3) { background: #305c4c; border-color: var(--lime); }
+    .arch-layer:nth-child(4) { background: #24463a; }
+
+    .arch-index {
+      font-family: var(--display);
+      font-size: 24px;
+      color: var(--lime);
+    }
+
+    .arch-layer h3 {
+      margin-top: 72px;
+      font-size: 38px;
+      line-height: 1.08;
+    }
+
+    .arch-layer ul {
+      margin: 24px 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 12px;
+      font-size: 20px;
+      color: rgba(255,250,240,.75);
+    }
+
+    .snapshot-chip {
+      position: absolute;
+      left: 50%;
+      bottom: -32px;
+      transform: translateX(-50%);
+      z-index: 4;
+      padding: 16px 28px;
+      background: var(--lime);
+      color: var(--forest-dark);
+      font-family: var(--display);
+      font-size: 24px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .arch-arrow {
+      position: absolute;
+      top: 48%;
+      right: -27px;
+      z-index: 5;
+      font-size: 36px;
+      color: var(--lime);
+    }
+
+    .runtime-strip {
+      position: absolute;
+      left: 184px;
+      right: 94px;
+      bottom: 68px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 16px;
+      color: rgba(255,250,240,.65);
+    }
+
+    /* === REQUEST PIPELINE === */
+    .pipeline {
+      position: absolute;
+      left: 92px;
+      right: 92px;
+      top: 390px;
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 18px;
+    }
+
+    .pipe-step {
+      position: relative;
+      min-height: 265px;
+      padding: 28px 22px;
+      border-top: 5px solid var(--forest);
+      background: rgba(255,250,240,.48);
+    }
+
+    .pipe-step:nth-child(4) { background: var(--orange); color: var(--cream); border-color: var(--orange-dark); }
+    .pipe-step:nth-child(5) { background: var(--forest); color: var(--cream); border-color: var(--lime); }
+
+    .pipe-step::after {
+      content: "→";
+      position: absolute;
+      right: -22px;
+      top: 102px;
+      z-index: 4;
+      font-family: var(--display);
+      font-size: 30px;
+      color: var(--forest-dark);
+    }
+
+    .pipe-step:last-child::after { content: none; }
+
+    .pipe-step small {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      color: var(--orange-dark);
+    }
+
+    .pipe-step:nth-child(4) small,
+    .pipe-step:nth-child(5) small { color: var(--lime); }
+
+    .pipe-step strong {
+      display: block;
+      margin-top: 70px;
+      font-family: var(--display);
+      font-size: 27px;
+      line-height: 1.06;
+    }
+
+    .pipe-step span {
+      display: block;
+      margin-top: 13px;
+      font-size: 16px;
+      line-height: 1.35;
+      opacity: .68;
+    }
+
+    .pipeline-mantra {
+      position: absolute;
+      left: 184px;
+      bottom: 86px;
+      font-family: var(--display);
+      font-size: 36px;
+      color: var(--forest-dark);
+    }
+
+    /* === DIGITAL TWIN + FLOOR PLAN === */
+    .twin-layout {
+      position: absolute;
+      left: 92px;
+      right: 92px;
+      top: 330px;
+      bottom: 88px;
+      display: grid;
+      grid-template-columns: 590px 1fr;
+      gap: 58px;
+    }
+
+    .floorplan-frame {
+      height: 660px;
+      padding: 24px;
+      background: var(--cream);
+      border: 3px solid var(--forest);
+      box-shadow: 22px 22px 0 rgba(33,79,61,.12);
+    }
+
+    .floorplan-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .twin-facts {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 22px;
+      align-content: center;
+    }
+
+    .twin-fact {
+      min-height: 190px;
+      padding: 28px;
+      border-top: 4px solid var(--orange);
+      background: rgba(255,250,240,.48);
+    }
+
+    .twin-fact:nth-child(2) { border-color: var(--lime); background: var(--forest); color: var(--cream); }
+    .twin-fact:nth-child(3) { border-color: var(--forest); }
+    .twin-fact:nth-child(4) { border-color: var(--orange-dark); }
+
+    .twin-fact strong {
+      display: block;
+      font-family: var(--display);
+      font-size: 45px;
+      line-height: 1;
+    }
+
+    .twin-fact p {
+      margin-top: 14px;
+      font-size: 20px;
+      line-height: 1.4;
+      color: var(--muted);
+    }
+
+    .twin-fact:nth-child(2) p { color: rgba(255,250,240,.68); }
+
+    /* === DATA DASHBOARD === */
+    .data-layout {
+      position: absolute;
+      left: 92px;
+      right: 92px;
+      top: 316px;
+      bottom: 88px;
+      display: grid;
+      grid-template-columns: 1.25fr 480px;
+      gap: 48px;
+    }
+
+    .dashboard-frame {
+      position: relative;
+      height: 655px;
+      overflow: hidden;
+      padding: 16px;
+      background: var(--forest-dark);
+      clip-path: polygon(0 0, 100% 0, 100% 94%, 96% 100%, 0 100%);
+    }
+
+    .dashboard-frame::before {
+      content: "ẢNH GIAO DIỆN · SỐ LIỆU ĐO KIỂM NẰM Ở CỘT PHẢI";
+      position: absolute;
+      left: 28px;
+      top: 28px;
+      z-index: 2;
+      padding: 8px 12px;
+      background: var(--lime);
+      color: var(--forest-dark);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .08em;
+    }
+
+    .dashboard-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top center;
+    }
+
+    .data-stats {
+      display: grid;
+      gap: 18px;
+      align-content: center;
+    }
+
+    .data-stat {
+      padding: 24px 26px;
+      border-left: 5px solid var(--orange);
+      background: rgba(255,250,240,.52);
+    }
+
+    .data-stat:nth-child(2) { border-color: var(--forest); }
+    .data-stat:nth-child(3) { border-color: var(--lime); background: var(--forest); color: var(--cream); }
+
+    .data-stat strong {
+      display: block;
+      font-family: var(--display);
+      font-size: 43px;
+    }
+
+    .data-stat span {
+      display: block;
+      margin-top: 5px;
+      font-size: 18px;
+      line-height: 1.38;
+      color: var(--muted);
+    }
+
+    .data-stat:nth-child(3) span { color: rgba(255,250,240,.68); }
+
+    /* === PREFERENCE MEMORY LOOP === */
+    .memory-layout {
+      position: absolute;
+      left: 92px;
+      right: 92px;
+      top: 340px;
+      bottom: 96px;
+      display: grid;
+      grid-template-columns: 1fr 310px 1fr;
+      gap: 44px;
+      align-items: center;
+    }
+
+    .memory-sources,
+    .memory-apply { display: grid; gap: 18px; }
+
+    .memory-card {
+      padding: 23px 26px;
+      border: 2px solid rgba(255,250,240,.34);
+      background: rgba(255,250,240,.055);
+    }
+
+    .memory-card strong {
+      display: block;
+      font-family: var(--display);
+      font-size: 28px;
+      color: var(--lime);
+    }
+
+    .memory-card span {
+      display: block;
+      margin-top: 7px;
+      font-size: 18px;
+      line-height: 1.38;
+      color: rgba(255,250,240,.68);
+    }
+
+    .evidence-core {
+      width: 260px;
+      height: 260px;
+      margin: auto;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      background: var(--lime);
+      color: var(--forest-dark);
+      box-shadow: 0 0 0 26px rgba(207,230,109,.08), 0 0 0 52px rgba(207,230,109,.035);
+    }
+
+    .evidence-core strong {
+      display: block;
+      font-family: var(--display);
+      font-size: 86px;
+      line-height: .85;
+    }
+
+    .evidence-core span {
+      display: block;
+      margin-top: 13px;
+      font-size: 18px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .memory-arrow {
+      position: absolute;
+      left: 50%;
+      bottom: -18px;
+      transform: translateX(-50%);
+      font-family: var(--display);
+      font-size: 27px;
+      color: var(--orange);
+      white-space: nowrap;
+    }
+
+    /* === SPEECH MODES === */
+    .speech-layout {
+      position: absolute;
+      left: 92px;
+      right: 92px;
+      top: 356px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 34px;
+    }
+
+    .speech-lane {
+      min-height: 430px;
+      padding: 32px 34px;
+      border-top: 7px solid var(--forest);
+      background: rgba(255,250,240,.48);
+    }
+
+    .speech-lane.render { border-color: var(--orange); background: var(--forest); color: var(--cream); }
+
+    .speech-lane h3 { font-size: 43px; }
+
+    .speech-flow {
+      margin-top: 58px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .speech-chip {
+      padding: 16px 18px;
+      border: 2px solid currentColor;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .speech-arrow { font-family: var(--display); font-size: 27px; color: var(--orange); }
+    .render .speech-arrow { color: var(--lime); }
+
+    .speech-note {
+      margin-top: 50px;
+      font-size: 20px;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+
+    .render .speech-note { color: rgba(255,250,240,.68); }
+
+    .shared-speech {
+      position: absolute;
+      left: 50%;
+      bottom: -82px;
+      transform: translateX(-50%);
+      width: 950px;
+      padding: 17px 26px;
+      background: var(--lime);
+      color: var(--forest-dark);
+      text-align: center;
+      font-family: var(--display);
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    /* === DEMO BEFORE / AFTER === */
+    .demo-layout {
+      position: absolute;
+      left: 92px;
+      right: 92px;
+      top: 300px;
+      bottom: 86px;
+      display: grid;
+      grid-template-columns: 630px 1fr;
+      gap: 50px;
+      align-items: center;
+    }
+
+    .demo-left { align-self: stretch; display: flex; flex-direction: column; justify-content: center; }
+
+    .demo-request {
+      padding: 24px 28px;
+      background: var(--orange);
+      color: var(--cream);
+      font-family: var(--display);
+      font-size: 33px;
+      line-height: 1.22;
+      transform: rotate(-.5deg);
+    }
+
+    .before-after {
+      margin-top: 34px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .ba-row {
+      display: grid;
+      grid-template-columns: 1.25fr 1fr 44px 1fr;
+      align-items: center;
+      padding: 15px 18px;
+      border-bottom: 1px solid var(--line);
+      font-size: 18px;
+    }
+
+    .ba-row strong { font-family: var(--display); font-size: 22px; }
+    .ba-row .to { color: var(--orange); font-family: var(--display); font-size: 26px; text-align: center; }
+    .ba-row .after { color: var(--forest-dark); font-weight: 700; }
+
+    .history-frame {
+      height: 680px;
+      padding: 16px;
+      background: var(--forest-dark);
+      clip-path: polygon(0 0, 100% 0, 100% 94%, 95% 100%, 0 100%);
+    }
+
+    .history-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top center;
+    }
+
+    /* === GUARDRAIL === */
+    .guard-layout {
+      position: absolute;
+      left: 92px;
+      right: 92px;
+      top: 350px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+    }
+
+    .guard-card {
+      min-height: 350px;
+      padding: 30px 28px;
+      border: 2px solid rgba(255,250,240,.30);
+      background: rgba(255,250,240,.05);
+    }
+
+    .guard-card:nth-child(3) { background: var(--orange-dark); border-color: var(--orange); }
+    .guard-card:nth-child(4) { border-color: var(--lime); }
+
+    .guard-card .symbol {
+      font-family: var(--display);
+      font-size: 56px;
+      color: var(--lime);
+    }
+
+    .guard-card h3 {
+      margin-top: 64px;
+      font-size: 34px;
+      line-height: 1.05;
+    }
+
+    .guard-card p {
+      margin-top: 18px;
+      font-size: 19px;
+      line-height: 1.45;
+      color: rgba(255,250,240,.67);
+    }
+
+    .atomic-mantra {
+      position: absolute;
+      left: 184px;
+      bottom: 75px;
+      padding: 16px 24px;
+      background: var(--lime);
+      color: var(--forest-dark);
+      font-family: var(--display);
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    /* === TEST RESULTS === */
+    .results-layout {
+      position: absolute;
+      left: 92px;
+      right: 92px;
+      top: 330px;
+      bottom: 100px;
+      display: grid;
+      grid-template-columns: 1.05fr 1fr 1fr;
+      gap: 28px;
+    }
+
+    .result-block {
+      position: relative;
+      padding: 36px 32px;
+      border-top: 7px solid var(--lime);
+      background: rgba(255,250,240,.06);
+    }
+
+    .result-block:nth-child(2) { border-color: var(--orange); }
+    .result-block:nth-child(3) { border-color: var(--cream); }
+
+    .result-number {
+      font-family: var(--display);
+      font-size: 112px;
+      line-height: .85;
+      color: var(--lime);
+      letter-spacing: -.05em;
+    }
+
+    .result-block:nth-child(2) .result-number { color: var(--orange); }
+    .result-block:nth-child(3) .result-number { color: var(--cream); }
+
+    .result-block h3 {
+      margin-top: 44px;
+      font-size: 35px;
+      line-height: 1.08;
+    }
+
+    .result-block p {
+      margin-top: 18px;
+      font-size: 19px;
+      line-height: 1.45;
+      color: rgba(255,250,240,.67);
+    }
+
+    .result-mini {
+      position: absolute;
+      left: 32px;
+      right: 32px;
+      bottom: 30px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255,250,240,.2);
+      font-size: 16px;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: rgba(255,250,240,.55);
+    }
+
+    /* === EVALUATION === */
+    .evaluation-layout {
+      position: absolute;
+      left: 92px;
+      right: 92px;
+      top: 340px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 42px;
+    }
+
+    .evaluation-column {
+      min-height: 470px;
+      padding: 32px 34px;
+      border-top: 7px solid var(--forest);
+      background: rgba(255,250,240,.46);
+    }
+
+    .evaluation-column.limit { border-color: var(--orange); }
+    .evaluation-column h3 { font-size: 42px; }
+
+    .evaluation-list {
+      margin-top: 42px;
+      display: grid;
+      gap: 25px;
+    }
+
+    .evaluation-item {
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      gap: 17px;
+      align-items: start;
+      font-size: 22px;
+      line-height: 1.38;
+    }
+
+    .evaluation-item .dot {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      background: var(--lime);
+      color: var(--forest-dark);
+      font-size: 15px;
+      font-weight: 800;
+      transform: rotate(-4deg);
+    }
+
+    .limit .evaluation-item .dot { background: var(--orange); color: var(--cream); }
+
+    /* === ROADMAP === */
+    .roadmap {
+      position: absolute;
+      left: 92px;
+      right: 92px;
+      top: 390px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 30px;
+    }
+
+    .road-step {
+      position: relative;
+      min-height: 330px;
+      padding: 32px 30px;
+      border: 2px solid var(--forest);
+      background: rgba(255,250,240,.45);
+    }
+
+    .road-step:nth-child(2) { background: var(--forest); color: var(--cream); border-color: var(--forest); }
+    .road-step:nth-child(3) { border-color: var(--orange); }
+
+    .road-step::after {
+      content: "→";
+      position: absolute;
+      right: -32px;
+      top: 128px;
+      z-index: 3;
+      font-family: var(--display);
+      font-size: 42px;
+      color: var(--orange);
+    }
+
+    .road-step:last-child::after { content: none; }
+
+    .road-step small {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      color: var(--orange-dark);
+    }
+
+    .road-step:nth-child(2) small { color: var(--lime); }
+
+    .road-step h3 {
+      margin-top: 68px;
+      font-size: 40px;
+      line-height: 1.05;
+    }
+
+    .road-step p {
+      margin-top: 20px;
+      font-size: 20px;
+      line-height: 1.42;
+      color: var(--muted);
+    }
+
+    .road-step:nth-child(2) p { color: rgba(255,250,240,.68); }
+
+    /* === CLOSING SLIDE === */
+    .closing-copy {
+      position: absolute;
+      left: 166px;
+      top: 150px;
+      width: 1320px;
+      z-index: 3;
+    }
+
+    .closing-copy h2 {
+      font-size: 126px;
+      line-height: .95;
+      color: var(--cream);
+    }
+
+    .closing-copy h2 em { color: var(--lime); font-style: normal; }
+
+    .closing-mantra {
+      margin-top: 60px;
+      width: 980px;
+      padding-left: 28px;
+      border-left: 5px solid var(--orange);
+      font-size: 31px;
+      line-height: 1.42;
+      color: rgba(255,250,240,.74);
+    }
+
+    .qa-badge {
+      position: absolute;
+      right: 112px;
+      bottom: 104px;
+      width: 280px;
+      height: 280px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--lime);
+      color: var(--forest-dark);
+      font-family: var(--display);
+      font-size: 74px;
+      font-weight: 800;
+      transform: rotate(-8deg);
+    }
+
+    .closing-meta {
+      position: absolute;
+      left: 166px;
+      bottom: 85px;
+      display: flex;
+      gap: 58px;
+      font-size: 18px;
+      color: rgba(255,250,240,.58);
+    }
+
+    /* === PRESENTATION CONTROLS OUTSIDE STAGE === */
+    .deck-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 10px;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 999px;
+      background: rgba(14,31,26,.78);
+      color: var(--cream);
+      backdrop-filter: blur(10px);
+      opacity: .25;
+      transition: opacity .25s ease;
+    }
+
+    .deck-controls:hover,
+    .deck-controls:focus-within { opacity: 1; }
+
+    .deck-controls button {
+      width: 34px;
+      height: 30px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+    }
+
+    .deck-controls button:hover { background: rgba(255,255,255,.12); }
+
+    .page-indicator {
+      min-width: 68px;
+      text-align: center;
+      font-size: 13px;
+      letter-spacing: .08em;
+    }
+
+    .progress-track {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 3px;
+      z-index: 999;
+      background: rgba(255,255,255,.08);
+    }
+
+    .progress-bar {
+      width: 0;
+      height: 100%;
+      background: var(--lime);
+      transition: width .35s var(--ease);
+    }
+
+    /* === INLINE EDITING UI === */
+    .edit-hotzone {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 80px;
+      height: 80px;
+      z-index: 10000;
+      cursor: pointer;
+    }
+
+    .edit-toggle {
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      z-index: 10001;
+      padding: 9px 12px;
+      border: 1px solid rgba(255,255,255,.22);
+      border-radius: 7px;
+      background: rgba(14,31,26,.94);
+      color: var(--cream);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s ease;
+      cursor: pointer;
+    }
+
+    .edit-toggle.show,
+    .edit-toggle.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .edit-actions {
+      position: fixed;
+      top: 14px;
+      left: 82px;
+      z-index: 10001;
+      display: flex;
+      gap: 7px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s ease;
+    }
+
+    body.editing .edit-actions { opacity: 1; pointer-events: auto; }
+
+    .edit-actions button {
+      padding: 9px 12px;
+      border: 1px solid rgba(255,255,255,.22);
+      border-radius: 7px;
+      background: rgba(14,31,26,.94);
+      color: var(--cream);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    body.editing [data-editable] {
+      outline: 2px dashed rgba(229,128,70,.72);
+      outline-offset: 5px;
+      cursor: text;
+    }
+
+    .save-toast {
+      position: fixed;
+      top: 58px;
+      left: 14px;
+      z-index: 10002;
+      padding: 8px 11px;
+      border-radius: 6px;
+      background: var(--lime);
+      color: var(--forest-dark);
+      font-size: 12px;
+      font-weight: 700;
+      opacity: 0;
+      transform: translateY(-5px);
+      transition: .2s ease;
+      pointer-events: none;
+    }
+
+    .save-toast.show { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+
+<body>
+  <!-- === FIXED PRESENTATION STAGE === -->
+  <div class="deck-viewport">
+    <main class="deck-stage" id="deckStage" aria-label="Báo cáo đồ án FlatMate Comfort">
+
+      <!-- === SLIDE 01: TITLE === -->
+      <section class="slide active visible" data-title="Mở đầu">
+        <div class="ambient-rings"></div>
+        <aside class="rail"><div class="brand-mark">FM</div><div class="rail-label">Bản sao số · AIoT · Tiếng Việt</div><div class="rail-page">01</div></aside>
+        <div class="title-content">
+          <div class="kicker reveal d1" data-editable="s1-kicker">Báo cáo đồ án NT532</div>
+          <h1 data-editable="s1-title"><span class="reveal d2">FlatMate</span><span class="reveal d3">Comfort</span></h1>
+          <p class="title-tagline reveal d4" data-editable="s1-tagline">FlatMate mô phỏng một căn hộ nhận biết ngữ cảnh, hiểu yêu cầu tiếng Việt, kiểm tra lệnh trước khi thực hiện và học từ những lần người dùng điều chỉnh.</p>
+        </div>
+        <div class="title-plan reveal-scale d3" aria-hidden="true">
+          <svg viewBox="0 0 520 610" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M42 42H310V88H468V560H242V518H42V42Z" stroke="#FFF7E8" stroke-width="5"/>
+            <path d="M42 214H212V42M212 214H468M242 214V560M242 382H468M310 88V214" stroke="#FFF7E8" stroke-width="3" opacity=".72"/>
+            <path d="M88 95H166V164H88V95ZM285 255H423V340H285V255ZM74 277H190V454H74V277Z" stroke="#CFE66D" stroke-width="3"/>
+            <circle class="pulse-node" cx="142" cy="128" r="12" fill="#E58046"/>
+            <circle class="pulse-node p2" cx="350" cy="300" r="12" fill="#E58046"/>
+            <circle class="pulse-node p3" cx="132" cy="368" r="12" fill="#E58046"/>
+            <path d="M142 128L350 300L132 368" stroke="#E58046" stroke-width="2" stroke-dasharray="8 10" opacity=".7"/>
+          </svg>
+        </div>
+        <div class="plan-label reveal d5" data-editable="s1-plan">6,73 × 7,81 m<br>10 kịch bản tái lập</div>
+        <div class="title-facts">
+          <div class="title-fact reveal d4"><strong>3D + SSE</strong>cập nhật thời gian thực</div>
+          <div class="title-fact reveal d5"><strong>Guardrail</strong>kiểm tra trước khi áp dụng</div>
+          <div class="title-fact reveal d6"><strong>Bộ nhớ</strong>học sau 3 lần chỉnh giống nhau</div>
+        </div>
+        <div class="title-byline reveal d6" data-editable="s1-byline">Khang Lê · NT532<br>UIT — VNU-HCM · 11/08/2026</div>
+      </section>
+
+      <!-- === SLIDE 02: PROBLEM === -->
+      <section class="slide cream-slide" data-title="Bài toán">
+        <div class="grid-field"></div>
+        <aside class="rail"><div class="brand-mark">FM</div><div class="rail-label">Bài toán</div><div class="rail-page">02</div></aside>
+        <div class="slide-inner">
+          <header class="slide-header">
+            <div class="kicker reveal d1">Vấn đề</div>
+            <h2 class="reveal d2" data-editable="s2-title">Nhà thông minh hiểu lệnh, nhưng chưa chắc hiểu thế nào là <span class="accent">“vừa phải”</span>.</h2>
+          </header>
+          <div class="problem-stage">
+            <div class="quote-stack">
+              <div class="quote-strip reveal-left d2" data-editable="s2-q1">“Phòng rất nóng, làm mát vừa phải.”</div>
+              <div class="quote-strip reveal-left d3" data-editable="s2-q2">“Tôi chuẩn bị làm việc.”</div>
+              <div class="quote-strip reveal-left d4" data-editable="s2-q3">“Không khí hơi ngột ngạt.”</div>
+            </div>
+            <div class="context-orbit reveal-scale d3" aria-label="Các yếu tố ngữ cảnh">
+              <div class="core">?</div>
+              <span class="orbit-tag t1">Cảm biến</span><span class="orbit-tag t2">Thiết bị</span>
+              <span class="orbit-tag t3">Hiện diện</span><span class="orbit-tag t4">Sở thích</span>
+              <span class="orbit-tag t5">Ngữ cảnh</span><span class="orbit-tag t6">Lịch sử</span>
+            </div>
+            <div class="formula-band reveal d5">Hành động = f(yêu cầu, cảm biến, thiết bị, ngữ cảnh, sở thích, lịch sử)</div>
+          </div>
+        </div>
+        <div class="section-line"></div><div class="footer-note">Cùng một câu nói, mỗi ngữ cảnh có thể cần một cách xử lý khác</div>
+      </section>
+
+      <!-- === SLIDE 03: GOAL AND SCOPE === -->
+      <section class="slide" data-title="Mục tiêu">
+        <div class="ambient-rings"></div>
+        <aside class="rail"><div class="brand-mark">FM</div><div class="rail-label">Mục tiêu</div><div class="rail-page">03</div></aside>
+        <div class="slide-inner">
+          <header class="slide-header">
+            <div class="kicker reveal d1">Chu trình AIoT</div>
+            <h2 class="reveal d2" data-editable="s3-title">Mục tiêu là khép kín vòng lặp <span class="accent">cảm nhận → xử lý → điều khiển → theo dõi</span>.</h2>
+          </header>
+          <div class="cycle-grid">
+            <article class="cycle-step reveal d2"><span class="cycle-number">01</span><h3>Thu nhận</h3><p>Đọc nhiệt độ, độ ẩm, CO₂, PM2.5, ánh sáng, tiếng ồn và hiện diện.</p></article>
+            <article class="cycle-step reveal d3"><span class="cycle-number">02</span><h3>Xử lý</h3><p>Xác định ngữ cảnh, tìm sở thích phù hợp, gọi mô hình và ghi nhật ký xử lý.</p></article>
+            <article class="cycle-step reveal d4"><span class="cycle-number">03</span><h3>Điều khiển</h3><p>Backend kiểm tra toàn bộ lệnh trước khi cập nhật thiết bị mô phỏng.</p></article>
+            <article class="cycle-step reveal d5"><span class="cycle-number">04</span><h3>Theo dõi</h3><p>Trạng thái mới được gửi qua SSE đến mô hình 3D, dashboard và lịch sử.</p></article>
+          </div>
+          <div class="scope-strip reveal d6"><span>Phạm vi: một người dùng · một căn hộ · một tiến trình mô phỏng</span><span>Không gồm: thiết bị thật · MQTT · xác thực người dùng · cảnh báo an toàn</span></div>
+        </div>
+        <div class="section-line"></div>
+      </section>
+
+      <!-- === SLIDE 04: PRODUCT EXPERIENCE === -->
+      <section class="slide cream-slide" data-title="Sản phẩm">
+        <div class="ambient-rings"></div>
+        <aside class="rail"><div class="brand-mark">FM</div><div class="rail-label">Sản phẩm</div><div class="rail-page">04</div></aside>
+        <div class="slide-inner">
+          <header class="slide-header">
+            <div class="kicker reveal d1">Trải nghiệm chính</div>
+            <h2 class="reveal d2" data-editable="s4-title">Toàn bộ căn hộ trong một màn hình.</h2>
+          </header>
+          <div class="product-layout">
+            <div class="feature-list">
+              <div class="feature-item reveal d2"><strong>Mô hình căn hộ 3D</strong><span>Không gian, người dùng, cảm biến và thiết bị nằm trong cùng một mô hình.</span></div>
+              <div class="feature-item reveal d3"><strong>Ngữ cảnh theo thời gian thực</strong><span>Người dùng có thể chọn làm việc, thư giãn, đọc trên giường, ngủ hoặc ra ngoài.</span></div>
+              <div class="feature-item reveal d4"><strong>Theo dõi từng bước xử lý</strong><span>Mỗi yêu cầu cho biết dữ liệu đầu vào, sở thích đã dùng, công cụ LLM đã chọn, kết quả kiểm tra và trạng thái cuối.</span></div>
+            </div>
+            <figure class="screen-frame reveal-scale d3">
+              <img src="../docs/screenshots/digital-twin.png" alt="Giao diện digital twin 3D của FlatMate Comfort">
+            </figure>
+          </div>
+        </div>
+        <div class="section-line"></div><div class="footer-note">Next.js · React Three Fiber · SSE</div>
+      </section>
+
+      <!-- === SLIDE 05: ARCHITECTURE === -->
+      <section class="slide forest-slide" data-title="Kiến trúc">
+        <div class="grid-field"></div>
+        <aside class="rail"><div class="brand-mark">FM</div><div class="rail-label">Kiến trúc</div><div class="rail-page">05</div></aside>
+        <div class="slide-inner">
+          <header class="slide-header">
+            <div class="kicker reveal d1">Thiết kế hệ thống</div>
+            <h2 class="reveal d2" data-editable="s5-title">Mọi lớp đều đọc trạng thái hiện tại của căn hộ từ <span class="lime">RoomSnapshot</span>.</h2>
+          </header>
+          <div class="architecture">
+            <article class="arch-layer reveal d2"><span class="arch-index">01</span><h3>Giao diện & giọng nói</h3><ul><li>Next.js 16 + React 19</li><li>Nhập văn bản / giọng nói</li><li>3D · dashboard · lịch sử</li></ul><span class="arch-arrow">→</span></article>
+            <article class="arch-layer reveal d3"><span class="arch-index">02</span><h3>API trợ lý</h3><ul><li>FastAPI + Pydantic</li><li>Xác định ngữ cảnh và sở thích</li><li>Luồng gọi công cụ có cấu trúc</li></ul><span class="arch-arrow">→</span></article>
+            <article class="arch-layer reveal d4"><span class="arch-index">03</span><h3>Kiểm tra & mô phỏng</h3><ul><li>Kiểm tra toàn bộ lệnh trong scene</li><li>Dữ liệu cảm biến theo seed</li><li>Mô phỏng tác động thiết bị</li></ul><span class="snapshot-chip">RoomSnapshot</span><span class="arch-arrow">→</span></article>
+            <article class="arch-layer reveal d5"><span class="arch-index">04</span><h3>Dữ liệu & sự kiện</h3><ul><li>Lịch sử / sở thích trong SQLite</li><li>Trạng thái + nhật ký qua SSE</li><li>Dữ liệu CSV / JSON</li></ul></article>
+          </div>
+          <div class="runtime-strip reveal d6"><span>Máy cá nhân: faster-whisper + VieNeu/Supertonic</span><span>Render: SpeechRecognition + Piper medium</span></div>
+        </div>
+        <div class="section-line"></div>
+      </section>
+
+      <!-- === SLIDE 06: REQUEST PIPELINE === -->
+      <section class="slide" data-title="Pipeline">
+        <div class="grid-field"></div>
+        <aside class="rail"><div class="brand-mark">FM</div><div class="rail-label">Luồng xử lý</div><div class="rail-page">06</div></aside>
+        <div class="slide-inner">
+          <header class="slide-header">
+            <div class="kicker reveal d1">Từ yêu cầu đến thiết bị</div>
+            <h2 class="reveal d2" data-editable="s6-title">Mỗi yêu cầu đi qua <span class="accent">bảy bước</span> trước khi thiết bị thay đổi.</h2>
+          </header>
+          <div class="pipeline">
+            <div class="pipe-step reveal d1"><small>01</small><strong>Yêu cầu</strong><span>Văn bản hoặc lời nói đã nhận dạng</span></div>
+            <div class="pipe-step reveal d2"><small>02</small><strong>Ngữ cảnh</strong><span>Hiện diện và RoomSnapshot</span></div>
+            <div class="pipe-step reveal d3"><small>03</small><strong>Sở thích</strong><span>Tìm sở thích đúng ngữ cảnh và còn hiệu lực</span></div>
+            <div class="pipe-step reveal d4"><small>04</small><strong>LLM chọn công cụ</strong><span>Trả về thông số cần thay đổi</span></div>
+            <div class="pipe-step reveal d5"><small>05</small><strong>Kiểm tra lệnh</strong><span>Kiểu dữ liệu, miền giá trị và xung đột</span></div>
+            <div class="pipe-step reveal d6"><small>06</small><strong>Cập nhật</strong><span>Áp dụng toàn bộ hoặc từ chối toàn bộ</span></div>
+            <div class="pipe-step reveal d7"><small>07</small><strong>Phản hồi</strong><span>Phản hồi theo đúng trạng thái đã áp dụng</span></div>
+          </div>
+          <div class="pipeline-mantra reveal d7">LLM chỉ đề xuất. Backend kiểm tra xong, bộ mô phỏng mới thực hiện.</div>
+        </div>
+        <div class="section-line"></div>
+      </section>
+
+      <!-- === SLIDE 07: DIGITAL TWIN AND SIMULATION === -->
+      <section class="slide cream-slide" data-title="Digital twin">
+        <div class="ambient-rings"></div>
+        <aside class="rail"><div class="brand-mark">FM</div><div class="rail-label">Digital twin</div><div class="rail-page">07</div></aside>
+        <div class="slide-inner">
+          <header class="slide-header">
+            <div class="kicker reveal d1">Mô hình căn hộ</div>
+            <h2 class="reveal d2" data-editable="s7-title">Digital twin phản ánh <span class="accent">hoạt động của người dùng và môi trường</span>.</h2>
+          </header>
+          <div class="twin-layout">
+            <figure class="floorplan-frame reveal-scale d2"><img src="../one_bedroom_digital_twin_handoff/source_floorplan.png" alt="Floor plan căn hộ một phòng ngủ"></figure>
+            <div class="twin-facts">
+              <article class="twin-fact reveal d2"><strong>10</strong><p>Kịch bản: làm việc, ngủ, nóng, ngột ngạt, ô nhiễm, vắng nhà…</p></article>
+              <article class="twin-fact reveal d3"><strong>Seed 42</strong><p>Cùng seed và chuỗi thao tác sẽ cho cùng kết quả.</p></article>
+              <article class="twin-fact reveal d4"><strong>6 nhóm cảm biến</strong><p>Nhiệt độ, độ ẩm, CO₂, PM2.5, độ rọi và tiếng ồn.</p></article>
+              <article class="twin-fact reveal d5"><strong>19 trạng thái thiết bị</strong><p>AC, quạt, đèn, máy lọc không khí, rèm, cửa sổ, máy tính và nguồn điện.</p></article>
+            </div>
+          </div>
+        </div>
+        <div class="section-line"></div><div class="footer-note">6,73 × 7,81 m · trần 2,45 m</div>
+      </section>
+
+      <!-- === SLIDE 08: 24-HOUR DATA === -->
+      <section class="slide" data-title="Dữ liệu 24 giờ">
+        <div class="grid-field"></div>
+        <aside class="rail"><div class="brand-mark">FM</div><div class="rail-label">Dữ liệu</div><div class="rail-page">08</div></aside>
+        <div class="slide-inner">
+          <header class="slide-header">
+            <div class="kicker reveal d1">Dữ liệu chuẩn · seed 42</div>
+            <h2 class="reveal d2" data-editable="s8-title">Dữ liệu 24 giờ thay đổi theo <span class="accent">từng hoạt động trong ngày</span>.</h2>
+          </header>
+          <div class="data-layout">
+            <figure class="dashboard-frame reveal-scale d2"><img src="../docs/screenshots/bang-dieu-khien.png" alt="Dashboard cảm biến và thiết bị FlatMate Comfort"></figure>
+            <div class="data-stats">
+              <article class="data-stat reveal d3"><strong>495–1.036 ppm</strong><span>CO₂ dao động trong khoảng này; trung vị là 842 ppm.</span></article>
+              <article class="data-stat reveal d4"><strong>13,5%</strong><span>Tỷ lệ mẫu có CO₂ từ 1.000 ppm trở lên, tập trung ở cuối các khoảng làm việc hoặc ngủ.</span></article>
+              <article class="data-stat reveal d5"><strong>1.440 mẫu</strong><span>Mỗi phút ghi một mẫu, bao quát các khoảng làm việc, thư giãn, ngủ, vắng nhà và thông gió.</span></article>
+            </div>
+          </div>
+        </div>
+        <div class="section-line"></div>
+      </section>
+
+      <!-- === SLIDE 09: PREFERENCE MEMORY === -->
+      <section class="slide forest-slide" data-title="Bộ nhớ sở thích">
+        <div class="ambient-rings"></div>
+        <aside class="rail"><div class="brand-mark">FM</div><div class="rail-label">Bộ nhớ sở thích</div><div class="rail-page">09</div></aside>
+        <div class="slide-inner">
+          <header class="slide-header">
+            <div class="kicker reveal d1">Cá nhân hóa có kiểm chứng</div>
+            <h2 class="reveal d2" data-editable="s9-title">Hệ thống chỉ tự học sở thích <span class="lime">sau khi có đủ bằng chứng</span>.</h2>
+          </header>
+          <div class="memory-layout">
+            <div class="memory-sources">
+              <div class="memory-card reveal d2"><strong>Người dùng nói rõ</strong><span>“Khi làm việc, tôi thích đèn vàng 50%.”</span></div>
+              <div class="memory-card reveal d3"><strong>Yêu cầu tạm thời</strong><span>Có thời điểm hết hạn và không trở thành mặc định lâu dài.</span></div>
+              <div class="memory-card reveal d4"><strong>Chỉnh lại kết quả</strong><span>Người dùng sửa đúng thông số mà trợ lý vừa thay đổi.</span></div>
+            </div>
+            <div class="evidence-core reveal-scale d4"><div><strong>3×</strong><span>cùng ngữ cảnh, cùng giá trị</span></div></div>
+            <div class="memory-apply">
+              <div class="memory-card reveal d4"><strong>Bằng chứng trong SQLite</strong><span>Mỗi bằng chứng lưu lại ngữ cảnh, ý định, giá trị, nguồn, độ tin cậy và hạn dùng.</span></div>
+              <div class="memory-card reveal d5"><strong>Tìm theo ngữ cảnh</strong><span>Hệ thống ưu tiên sở thích được nói trực tiếp, tiếp đến sở thích tạm thời, rồi mới dùng sở thích đã học.</span></div>
+              <div class="memory-card reveal d6"><strong>Kiểm tra trước khi áp dụng</strong><span>Sở thích được tìm thấy vẫn phải qua bước kiểm tra lệnh.</span></div>
+            </div>
+            <div class="memory-arrow reveal d7">Một lần chỉnh chưa làm thay đổi cách xử lý yêu cầu tiếp theo.</div>
+          </div>
+        </div>
+        <div class="section-line"></div>
+      </section>
+
+      <!-- === SLIDE 10: VIETNAMESE SPEECH === -->
+      <section class="slide cream-slide" data-title="Giọng nói tiếng Việt">
+        <div class="grid-field"></div>
+        <aside class="rail"><div class="brand-mark">FM</div><div class="rail-label">Giọng nói</div><div class="rail-page">10</div></aside>
+        <div class="slide-inner">
+          <header class="slide-header">
+            <div class="kicker reveal d1">ASR + TTS</div>
+            <h2 class="reveal d2" data-editable="s10-title">Máy cá nhân xử lý giọng nói cục bộ; <span class="accent">Render dùng trình duyệt và Piper</span>.</h2>
+          </header>
+          <div class="speech-layout">
+            <article class="speech-lane reveal d2">
+              <h3>Chạy trên máy cá nhân</h3>
+              <div class="speech-flow"><span class="speech-chip">MediaRecorder</span><span class="speech-arrow">→</span><span class="speech-chip">faster-whisper small</span><span class="speech-arrow">→</span><span class="speech-chip">VieNeu / Supertonic</span></div>
+              <p class="speech-note">Âm thanh được xử lý ngay trên máy, với các mô hình chạy ở chế độ CPU int8. Nếu microphone lỗi, người dùng vẫn có thể nhập văn bản.</p>
+            </article>
+            <article class="speech-lane render reveal d3">
+              <h3>Triển khai trên Render</h3>
+              <div class="speech-flow"><span class="speech-chip">SpeechRecognition vi-VN</span><span class="speech-arrow">→</span><span class="speech-chip">Transcript</span><span class="speech-arrow">→</span><span class="speech-chip">Piper medium WAV</span></div>
+              <p class="speech-note">Trình duyệt nhận dạng tiếng Việt; backend dùng Piper để tạo giọng đọc ổn định, không phụ thuộc giọng có sẵn trên hệ điều hành.</p>
+            </article>
+            <div class="shared-speech reveal d5">Dùng chung: chuẩn hóa tiếng Việt · từ điển thuật ngữ · nhập văn bản dự phòng · `/api/tts`</div>
+          </div>
+        </div>
+        <div class="section-line"></div>
+      </section>
+
+      <!-- === SLIDE 11: EVALUATION === -->
+      <section class="slide cream-slide" data-title="Đánh giá">
+        <div class="grid-field"></div>
+        <aside class="rail"><div class="brand-mark">FM</div><div class="rail-label">Đánh giá</div><div class="rail-page">11</div></aside>
+        <div class="slide-inner">
+          <header class="slide-header">
+            <div class="kicker reveal d1">Đánh giá trung thực</div>
+            <h2 class="reveal d2" data-editable="s14-title">Điểm mạnh lớn nhất của hệ thống là <span class="accent">kết quả có thể được kiểm tra và giải thích</span>.</h2>
+          </header>
+          <div class="evaluation-layout">
+            <article class="evaluation-column reveal d2">
+              <h3>Điểm mạnh</h3>
+              <div class="evaluation-list">
+                <div class="evaluation-item"><span class="dot">1</span><span>Bộ mô phỏng và dữ liệu có thể tái lập bằng seed.</span></div>
+                <div class="evaluation-item"><span class="dot">2</span><span>Hệ thống lưu nhật ký xử lý, sở thích đã dùng và lịch sử hành động cho từng yêu cầu.</span></div>
+                <div class="evaluation-item"><span class="dot">3</span><span>Vai trò của LLM, backend và lớp thiết bị được tách rõ.</span></div>
+              </div>
+            </article>
+            <article class="evaluation-column limit reveal d3">
+              <h3>Giới hạn</h3>
+              <div class="evaluation-list">
+                <div class="evaluation-item"><span class="dot">1</span><span>Chưa kết nối cảm biến, MQTT hoặc thiết bị vật lý.</span></div>
+                <div class="evaluation-item"><span class="dot">2</span><span>Trợ lý vẫn phụ thuộc vào mô hình bên ngoài và kết nối mạng.</span></div>
+                <div class="evaluation-item"><span class="dot">3</span><span>Bản Render Free chưa có lưu trữ bền vững; thử nghiệm giọng nói còn ít.</span></div>
+              </div>
+            </article>
+          </div>
+        </div>
+        <div class="section-line"></div>
+      </section>
+
+      <!-- === SLIDE 12: ROADMAP + CLOSING === -->
+      <section class="slide forest-slide" data-title="Kết luận">
+        <div class="ambient-rings"></div><div class="grid-field"></div>
+        <aside class="rail"><div class="brand-mark">FM</div><div class="rail-label">Kết luận</div><div class="rail-page">12</div></aside>
+        <div class="closing-copy">
+          <div class="kicker reveal d1">Kết luận</div>
+          <h2 class="reveal d2" data-editable="s15-title">Điểm cốt lõi là <em>phân chia trách nhiệm</em>, không giao toàn quyền cho LLM.</h2>
+          <p class="closing-mantra reveal d3" data-editable="s15-mantra">LLM diễn giải yêu cầu, backend kiểm tra lệnh, còn bộ mô phỏng thực hiện và ghi lại kết quả. Cách phân vai này giúp hệ thống dễ kiểm thử hôm nay và sẵn sàng kết nối thiết bị thật sau này.</p>
+        </div>
+        <div class="closing-meta reveal d4"><span>Bước tiếp theo: kết nối MQTT / Home Assistant</span><span>Nhận dữ liệu từ cảm biến thật</span><span>Lưu dữ liệu bền vững + kiểm thử end-to-end trên trình duyệt</span></div>
+        <div class="qa-badge reveal-scale d4">Hỏi đáp</div>
+        <div class="section-line"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- === NAVIGATION + PROGRESS UI === -->
+  <nav class="deck-controls" aria-label="Điều khiển slide">
+    <button id="prevSlide" type="button" aria-label="Slide trước">←</button>
+    <span class="page-indicator" id="pageIndicator" aria-live="polite">01 / 12</span>
+    <button id="nextSlide" type="button" aria-label="Slide sau">→</button>
+  </nav>
+  <div class="progress-track" aria-hidden="true"><div class="progress-bar" id="progressBar"></div></div>
+
+  <!-- === INLINE EDITING UI: HOVER TOP-LEFT OR PRESS E === -->
+  <div class="edit-hotzone" aria-hidden="true"></div>
+  <button class="edit-toggle" id="editToggle" type="button" title="Edit mode (E)">EDIT</button>
+  <div class="edit-actions" aria-label="Công cụ chỉnh sửa">
+    <button id="saveEdits" type="button">SAVE</button>
+    <button id="downloadDeck" type="button">DOWNLOAD</button>
+  </div>
+  <div class="save-toast" id="saveToast">Đã lưu</div>
+
+  <script>
+    /* === SLIDE PRESENTATION CONTROLLER === */
+    class SlidePresentation {
+      constructor() {
+        this.slides = [...document.querySelectorAll('.slide')];
+        this.stage = document.getElementById('deckStage');
+        this.currentSlide = this.readHash();
+        this.wheelLocked = false;
+        this.touchStartX = 0;
+        this.touchStartY = 0;
+        this.setupStageScale();
+        this.setupKeyboardNav();
+        this.setupTouchNav();
+        this.setupWheelNav();
+        this.setupButtons();
+        this.showSlide(this.currentSlide, false);
+      }
+
+      readHash() {
+        const match = location.hash.match(/slide=(\d+)/);
+        return match ? Math.min(Math.max(Number(match[1]) - 1, 0), document.querySelectorAll('.slide').length - 1) : 0;
+      }
+
+      setupStageScale() {
+        const scaleStage = () => {
+          const factor = Math.min(innerWidth / 1920, innerHeight / 1080);
+          const x = (innerWidth - 1920 * factor) / 2;
+          const y = (innerHeight - 1080 * factor) / 2;
+          this.stage.style.transform = `translate(${x}px, ${y}px) scale(${factor})`;
+        };
+        scaleStage();
+        addEventListener('resize', scaleStage);
+      }
+
+      setupKeyboardNav() {
+        addEventListener('keydown', event => {
+          const target = event.target;
+          const editingText = target && (target.isContentEditable || /INPUT|TEXTAREA|SELECT/.test(target.tagName));
+          if (editingText) return;
+          if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(event.key)) {
+            event.preventDefault();
+            this.next();
+          } else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(event.key)) {
+            event.preventDefault();
+            this.previous();
+          } else if (event.key === 'Home') {
+            event.preventDefault();
+            this.showSlide(0);
+          } else if (event.key === 'End') {
+            event.preventDefault();
+            this.showSlide(this.slides.length - 1);
+          }
+        });
+      }
+
+      setupTouchNav() {
+        addEventListener('touchstart', event => {
+          const touch = event.changedTouches[0];
+          this.touchStartX = touch.clientX;
+          this.touchStartY = touch.clientY;
+        }, { passive: true });
+
+        addEventListener('touchend', event => {
+          const touch = event.changedTouches[0];
+          const dx = touch.clientX - this.touchStartX;
+          const dy = touch.clientY - this.touchStartY;
+          if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+            dx < 0 ? this.next() : this.previous();
+          }
+        }, { passive: true });
+      }
+
+      setupWheelNav() {
+        addEventListener('wheel', event => {
+          if (this.wheelLocked || Math.abs(event.deltaY) < 18) return;
+          this.wheelLocked = true;
+          event.deltaY > 0 ? this.next() : this.previous();
+          setTimeout(() => { this.wheelLocked = false; }, 650);
+        }, { passive: true });
+      }
+
+      setupButtons() {
+        document.getElementById('prevSlide').addEventListener('click', () => this.previous());
+        document.getElementById('nextSlide').addEventListener('click', () => this.next());
+      }
+
+      showSlide(index, updateHash = true) {
+        this.currentSlide = Math.max(0, Math.min(index, this.slides.length - 1));
+        this.slides.forEach((slide, slideIndex) => {
+          const active = slideIndex === this.currentSlide;
+          slide.classList.toggle('active', active);
+          slide.classList.toggle('visible', active);
+          slide.setAttribute('aria-hidden', active ? 'false' : 'true');
+        });
+
+        const humanIndex = this.currentSlide + 1;
+        document.getElementById('pageIndicator').textContent = `${String(humanIndex).padStart(2, '0')} / ${String(this.slides.length).padStart(2, '0')}`;
+        document.getElementById('progressBar').style.width = `${humanIndex / this.slides.length * 100}%`;
+        document.title = `${this.slides[this.currentSlide].dataset.title} — FlatMate Comfort`;
+        if (updateHash) history.replaceState(null, '', `#slide=${humanIndex}`);
+      }
+
+      next() { this.showSlide(this.currentSlide + 1); }
+      previous() { this.showSlide(this.currentSlide - 1); }
+    }
+
+    /* === INLINE PRESENTATION EDITOR === */
+    class PresentationEditor {
+      constructor() {
+        this.storageKey = 'flatmate-comfort-presentation-edits-v1';
+        this.isActive = false;
+        this.editables = [...document.querySelectorAll('[data-editable]')];
+        this.load();
+        this.bindControls();
+      }
+
+      bindControls() {
+        document.getElementById('editToggle').addEventListener('click', () => this.toggleEditMode());
+        document.getElementById('saveEdits').addEventListener('click', () => this.save());
+        document.getElementById('downloadDeck').addEventListener('click', () => this.download());
+        document.addEventListener('keydown', event => {
+          const editingText = event.target && event.target.isContentEditable;
+          if ((event.key === 'e' || event.key === 'E') && !editingText) this.toggleEditMode();
+          if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+            event.preventDefault();
+            this.save();
+          }
+        });
+      }
+
+      toggleEditMode() {
+        this.isActive = !this.isActive;
+        document.body.classList.toggle('editing', this.isActive);
+        const toggle = document.getElementById('editToggle');
+        toggle.classList.toggle('active', this.isActive);
+        toggle.textContent = this.isActive ? 'DONE' : 'EDIT';
+        this.editables.forEach(element => {
+          element.contentEditable = this.isActive ? 'true' : 'false';
+          element.spellcheck = this.isActive;
+        });
+        if (!this.isActive) this.save();
+      }
+
+      save() {
+        const edits = {};
+        this.editables.forEach(element => { edits[element.dataset.editable] = element.innerHTML; });
+        localStorage.setItem(this.storageKey, JSON.stringify(edits));
+        const toast = document.getElementById('saveToast');
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 1100);
+      }
+
+      load() {
+        try {
+          const edits = JSON.parse(localStorage.getItem(this.storageKey) || '{}');
+          this.editables.forEach(element => {
+            if (Object.prototype.hasOwnProperty.call(edits, element.dataset.editable)) element.innerHTML = edits[element.dataset.editable];
+          });
+        } catch (_) {
+          localStorage.removeItem(this.storageKey);
+        }
+      }
+
+      download() {
+        this.save();
+        const clone = document.documentElement.cloneNode(true);
+        clone.querySelector('body').classList.remove('editing');
+        clone.querySelectorAll('[contenteditable]').forEach(element => {
+          element.removeAttribute('contenteditable');
+          element.removeAttribute('spellcheck');
+        });
+        clone.querySelectorAll('.slide').forEach((slide, index) => {
+          slide.classList.toggle('active', index === 0);
+          slide.classList.toggle('visible', index === 0);
+        });
+        const blob = new Blob(['<!doctype html>\n' + clone.outerHTML], { type: 'text/html;charset=utf-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'FlatMate-Comfort-NT532-Presentation-edited.html';
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+      }
+    }
+
+    /* === EDIT HOTZONE WITH 400MS GRACE PERIOD === */
+    const editableIds = [...document.querySelectorAll('[data-editable]')].map(element => element.dataset.editable);
+    console.assert(document.querySelectorAll('.slide').length === 12 && new Set(editableIds).size === editableIds.length, 'Presentation structure check failed.');
+    const presentation = new SlidePresentation();
+    const editor = new PresentationEditor();
+    const hotzone = document.querySelector('.edit-hotzone');
+    const editToggle = document.getElementById('editToggle');
+    let hideTimeout = null;
+
+    hotzone.addEventListener('mouseenter', () => {
+      clearTimeout(hideTimeout);
+      editToggle.classList.add('show');
+    });
+    hotzone.addEventListener('mouseleave', () => {
+      hideTimeout = setTimeout(() => {
+        if (!editor.isActive) editToggle.classList.remove('show');
+      }, 400);
+    });
+    editToggle.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+    editToggle.addEventListener('mouseleave', () => {
+      hideTimeout = setTimeout(() => {
+        if (!editor.isActive) editToggle.classList.remove('show');
+      }, 400);
+    });
+    hotzone.addEventListener('click', () => editor.toggleEditMode());
+  </script>
+</body>
+</html>
